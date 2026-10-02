@@ -196,13 +196,20 @@ private fun ShadeButton(glyph: Glyph, label: String, lit: Boolean, onTap: () -> 
     }
 }
 
-/** One waiting conversation. Tap to open it; swipe it sideways to clear it. */
+/**
+ * One waiting conversation. Tap to open it; swipe it sideways to clear it. [onOpen] returns false
+ * when it can't open right now, and the card shakes.
+ */
 @Composable
-private fun NoticeCard(notice: Notice, onOpen: (Rect) -> Unit, onDismiss: () -> Unit) {
+private fun NoticeCard(notice: Notice, onOpen: (Rect) -> Boolean, onDismiss: () -> Unit) {
     val dx = remember { Animatable(0f) }
+    val refused = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var width by remember { mutableFloatStateOf(1f) }
     var bounds by remember { mutableStateOf(Rect.Zero) }
+    fun open() {
+        if (!onOpen(bounds)) scope.launch { refused.shake() }
+    }
     val label = "${notice.thread.contact.name}: ${notice.line.text}"
     Box(
         Modifier
@@ -212,13 +219,13 @@ private fun NoticeCard(notice: Notice, onOpen: (Rect) -> Unit, onDismiss: () -> 
                 bounds = it.boundsInRoot()
             }
             .graphicsLayer {
-                translationX = dx.value
+                translationX = dx.value + refused.value.dp.toPx()
                 alpha = 1f - (abs(dx.value) / width).coerceIn(0f, 1f) * 0.9f
             }
             .semantics {
                 contentDescription = label
                 role = Role.Button
-                onClick { onOpen(bounds); true }
+                onClick { open(); true }
             }
             .draggable(
                 orientation = Orientation.Horizontal,
@@ -233,7 +240,7 @@ private fun NoticeCard(notice: Notice, onOpen: (Rect) -> Unit, onDismiss: () -> 
                     }
                 },
             )
-            .pointerInput(Unit) { detectTapGestures { onOpen(bounds) } },
+            .pointerInput(Unit) { detectTapGestures { open() } },
     ) {
         NoticeRow(notice, Modifier.background(PhoneColors.Surface, RoundedCornerShape(16.dp)).border(1.dp, PhoneColors.Outline, RoundedCornerShape(16.dp)))
     }
@@ -279,6 +286,7 @@ internal fun NoticeRow(notice: Notice, modifier: Modifier = Modifier) {
 internal fun HeadsUp(os: PhoneOs, fit: FrameFit) {
     val notice = os.headsUp ?: return
     val drag = remember(notice) { Animatable(0f) }
+    val refused = remember(notice) { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val unreadLabel = pluralStringResource(R.plurals.unread, notice.unread, notice.unread)
     val text = notice.line.text.let { if (it.last() in ".?!…") it else "$it." }
@@ -286,6 +294,9 @@ internal fun HeadsUp(os: PhoneOs, fit: FrameFit) {
     val from = remember(fit) {
         val at = fit.toWindow(12f, 76f)
         Rect(at.x, at.y, at.x + 336f * fit.unit, at.y + 72f * fit.unit)
+    }
+    fun open() {
+        if (!os.openNotice(notice, from)) scope.launch { refused.shake() }
     }
     DesignFrame(fit) {
         Box(
@@ -295,6 +306,7 @@ internal fun HeadsUp(os: PhoneOs, fit: FrameFit) {
                 .graphicsLayer {
                     val p = os.headsUpIn.value
                     translationY = lerp(-120.dp.toPx(), 0f, p) + drag.value.coerceAtMost(0f)
+                    translationX = refused.value.dp.toPx()
                     alpha = p.coerceIn(0f, 1f)
                     shadowElevation = 12.dp.toPx() * p.coerceIn(0f, 1f)
                     shape = RoundedCornerShape(18.dp)
@@ -305,7 +317,7 @@ internal fun HeadsUp(os: PhoneOs, fit: FrameFit) {
                 .semantics {
                     contentDescription = label
                     role = Role.Button
-                    onClick { os.openNotice(notice, from); true }
+                    onClick { open(); true }
                 }
                 .draggable(
                     orientation = Orientation.Vertical,
@@ -318,10 +330,11 @@ internal fun HeadsUp(os: PhoneOs, fit: FrameFit) {
                         }
                     },
                 )
-                .pointerInput(Unit) {
+                // keyed by the notice, so a banner replaced by a newer one opens the newer one
+                .pointerInput(notice) {
                     detectTapGestures {
                         os.feedback(Haptic.Tick)
-                        os.openNotice(notice, from)
+                        open()
                     }
                 },
         ) {

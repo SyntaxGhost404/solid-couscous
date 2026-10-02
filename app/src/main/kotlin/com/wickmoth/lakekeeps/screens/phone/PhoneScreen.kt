@@ -1,6 +1,7 @@
 package com.wickmoth.lakekeeps.screens.phone
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,8 @@ import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Notice
 import com.wickmoth.lakekeeps.game.messages.Threads
 import com.wickmoth.lakekeeps.game.messages.formatClock
+import com.wickmoth.lakekeeps.game.phone.CallLog
+import com.wickmoth.lakekeeps.screens.phone.calls.CallsApp
 import com.wickmoth.lakekeeps.screens.phone.messages.MessagesApp
 import com.wickmoth.lakekeeps.ui.DesignFrame
 import com.wickmoth.lakekeeps.ui.LocalViewport
@@ -49,23 +52,25 @@ import kotlinx.coroutines.flow.first
 private const val FIRST_MESSAGE_DELAY_MS = 1200L
 
 /**
- * A held phone: its home screen, the Messages app, the status bar and its shade. [content] (0..1)
- * is the phone waking up as it is lifted; [onPutDown] sets it back on the desk.
+ * A held phone: its home screen, the Messages and Phone apps, the status bar and its shade.
+ * [content] (0..1) is the phone waking up as it is lifted; [onPutDown] sets it back on the desk.
  */
 @Composable
-fun PhoneScreen(owner: Owner, messages: Messages, content: () -> Float, onPutDown: () -> Unit) {
-    val os = rememberPhoneOs(owner, messages)
+fun PhoneScreen(owner: Owner, messages: Messages, calls: CallLog, content: () -> Float, onPutDown: () -> Unit) {
+    val os = rememberPhoneOs(owner, messages, calls)
     val fit = rememberFrameFit(Alignment.TopCenter)
     val viewport = LocalViewport.current
     val spec = remember(owner) { phoneSpec(owner) }
     var panelHeight by remember { mutableFloatStateOf(1f) }
-    val live by remember { derivedStateOf { os.thread?.let(messages::isLive) == true && os.appOpen } }
-    val messagesIcon = remember(fit) {
-        val at = iconTopLeft(spec.apps.indexOfFirst { it.label == R.string.app_messages })
-        val corner = fit.toWindow(at.x, at.y)
-        Rect(corner, Size(ICON * fit.unit, ICON * fit.unit))
+    val busy by remember { derivedStateOf { os.busy } }
+    val appIcons = remember(fit) {
+        fun tile(label: Int): Rect {
+            val at = iconTopLeft(spec.apps.indexOfFirst { it.label == label })
+            return Rect(fit.toWindow(at.x, at.y), Size(ICON * fit.unit, ICON * fit.unit))
+        }
+        mapOf(PhoneApp.Messages to tile(R.string.app_messages), PhoneApp.Calls to tile(R.string.app_phone))
     }
-    SideEffect { os.appIcon = messagesIcon }
+    SideEffect { os.appIcons = appIcons }
 
     // A contact with a live script reaches out once the phone is awake.
     LaunchedEffect(owner) {
@@ -85,16 +90,20 @@ fun PhoneScreen(owner: Owner, messages: Messages, content: () -> Float, onPutDow
             owner = owner,
             content = content,
             unread = { messages.unread(owner) },
-            onOpenMessages = { os.openApp(messagesIcon) },
+            onOpen = { app -> os.openApp(app, appIcons.getValue(app)) },
             modifier = Modifier.graphicsLayer {
                 val s = 1f - 0.06f * os.appIn.value
                 scaleX = s
                 scaleY = s
             },
         )
-        if (os.appOpen) {
-            AppWindow(os.launchedFrom, messagesIcon.width, viewport, progress = { os.appIn.value }) {
-                MessagesApp(os, fit)
+        os.app?.let { app ->
+            val icon = if (app == PhoneApp.Messages) R.drawable.icon_messages else R.drawable.icon_phone
+            AppWindow(os.launchedFrom, icon, appIcons.getValue(app).width, viewport, progress = { os.appIn.value }) {
+                when (app) {
+                    PhoneApp.Messages -> MessagesApp(os, fit)
+                    PhoneApp.Calls -> CallsApp(os, fit)
+                }
             }
         }
         DesignFrame(fit) {
@@ -104,7 +113,7 @@ fun PhoneScreen(owner: Owner, messages: Messages, content: () -> Float, onPutDow
                 notices = messages.notices(owner).size,
                 content = content,
                 onHome = { 1f - os.appIn.value },
-                diamondEnabled = !live,
+                diamondEnabled = !busy,
                 onDiamond = onPutDown,
                 onShadeDrag = { delta -> os.dragShade(delta / panelHeight) },
                 onShadeRelease = { velocity -> os.settleShade(velocity / panelHeight) },
@@ -121,12 +130,12 @@ fun PhoneScreen(owner: Owner, messages: Messages, content: () -> Float, onPutDow
 
 /**
  * An app's window growing out of the place it was launched from (its icon, or a notification):
- * the app's icon swells and fades while the window opens to full screen and the content settles
+ * the app's [icon] swells and fades while the window opens to full screen and the content settles
  * in. [iconSide] is the icon's size in window pixels.
  */
 @Composable
-private fun AppWindow(from: Rect, iconSide: Float, viewport: Size, progress: () -> Float, content: @Composable () -> Unit) {
-    val icon = painterResource(R.drawable.icon_messages)
+private fun AppWindow(from: Rect, @DrawableRes icon: Int, iconSide: Float, viewport: Size, progress: () -> Float, content: @Composable () -> Unit) {
+    val splash = painterResource(icon)
     Box(
         Modifier
             .fillMaxSize()
@@ -160,7 +169,7 @@ private fun AppWindow(from: Rect, iconSide: Float, viewport: Size, progress: () 
             val r = lerpRect(from, Rect(Offset.Zero, viewport), e)
             val side = iconSide * (1f + 0.6f * e)
             translate(r.center.x - side / 2f, r.center.y - side / 2f) {
-                with(icon) { draw(Size(side, side), alpha = fade) }
+                with(splash) { draw(Size(side, side), alpha = fade) }
             }
         }
     }

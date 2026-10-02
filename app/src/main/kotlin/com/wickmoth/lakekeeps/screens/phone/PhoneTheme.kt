@@ -13,7 +13,7 @@ import com.wickmoth.lakekeeps.ui.Fonts
 
 /**
  * Surfaces of the in-game phone UI: the game's night tones, with the Messages icon's blue as the
- * accent and the Phone icon's green for "online".
+ * accent, the Phone icon's green for "online" and calling, and the badge red for alerts.
  */
 internal object PhoneColors {
     val AppBackground = Color(0xFF0B131C)
@@ -31,6 +31,7 @@ internal object PhoneColors {
     val OutgoingTime = Color(0xFFBCD0F0)
     val Online = Color(0xFF3FBF73)
     val Offline = Color(0xFF4A5560)
+    val Alert = Color(0xFFE5484D)
     val Shade = Color(0xFF080C11)
 }
 

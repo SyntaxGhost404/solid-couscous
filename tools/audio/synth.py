@@ -230,6 +230,49 @@ def offline() -> np.ndarray:
     return normalise(band(fade(out, 0.001, 0.1), None, 3000, 2), 0.26)
 
 
+# ------------------------------------------------------------------ Phone app: keypad, ringing, hang-up
+# Pure tones, so they need no random generator either.
+
+# Each key sounds its row's low tone with its column's high tone, as on a real keypad.
+KEYS = {
+    "1": (697, 1209), "2": (697, 1336), "3": (697, 1477),
+    "4": (770, 1209), "5": (770, 1336), "6": (770, 1477),
+    "7": (852, 1209), "8": (852, 1336), "9": (852, 1477),
+    "star": (941, 1209), "0": (941, 1336), "hash": (941, 1477),
+}
+
+
+def _line(x: np.ndarray) -> np.ndarray:
+    """Narrowed to a phone line's band."""
+    return band(x, 300, 3400, 2)
+
+
+def key_tone(low: float, high: float) -> np.ndarray:
+    t = t_axis(0.16)
+    pair = np.sin(2 * np.pi * low * t) + np.sin(2 * np.pi * high * t)
+    return normalise(fade(pair, 0.004, 0.03), 0.2)
+
+
+def ringback() -> np.ndarray:
+    """One ring as the caller hears it: 400 and 450 Hz together, twice, 0.4 s on and 0.2 s off."""
+    out = np.zeros(int(1.0 * SR))
+    t = t_axis(0.4)
+    burst = fade(np.sin(2 * np.pi * 400 * t) + np.sin(2 * np.pi * 450 * t), 0.012, 0.025)
+    mix_at(out, burst, 0.0)
+    mix_at(out, burst, 0.6)
+    return normalise(_line(out), 0.26)
+
+
+def call_end() -> np.ndarray:
+    """Three short pips as the line drops."""
+    out = np.zeros(int(0.75 * SR))
+    t = t_axis(0.13)
+    pip = fade(np.sin(2 * np.pi * 480 * t) + 0.3 * np.sin(2 * np.pi * 960 * t), 0.004, 0.02)
+    for k in range(3):
+        mix_at(out, pip, k * 0.22)
+    return normalise(_line(out), 0.26)
+
+
 # ------------------------------------------------------------------ ambience
 
 def ambience(seconds: float = 48.0) -> np.ndarray:
@@ -309,6 +352,8 @@ SOUNDS = {
     "sfx_putdown": putdown, "sfx_denied": denied, "sfx_scribble": scribble,
     "sfx_msg_in": msg_in, "sfx_msg_out": msg_out, "sfx_notify": notify, "sfx_app_open": app_open,
     "sfx_app_close": app_close, "sfx_offline": offline,
+    **{f"sfx_key_{key}": (lambda low=low, high=high: key_tone(low, high)) for key, (low, high) in KEYS.items()},
+    "sfx_ringback": ringback, "sfx_call_end": call_end,
 }
 
 

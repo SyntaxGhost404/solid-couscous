@@ -18,8 +18,8 @@ import androidx.lifecycle.LifecycleOwner
 import com.wickmoth.lakekeeps.R
 
 /**
- * Plays the effects through a SoundPool and loops the ambience through a MediaPlayer. The
- * ambience only runs while the game is visible, holds audio focus and is not muted.
+ * Plays the effects through a SoundPool and loops the ambience through a MediaPlayer. Effects only
+ * play while the game is visible and not muted; the ambience also needs audio focus.
  */
 class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
     private val app = context.applicationContext
@@ -45,7 +45,7 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
         .build()
 
-    private val pool = SoundPool.Builder().setMaxStreams(6).setAudioAttributes(effectAttributes).build()
+    private val pool = SoundPool.Builder().setMaxStreams(8).setAudioAttributes(effectAttributes).build()
     private val effects: Map<Sfx, Int> = Sfx.entries.associateWith { pool.load(app, it.resource(), 1) }
 
     private var player: MediaPlayer? = null
@@ -76,10 +76,19 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
         .build()
 
     override fun play(sfx: Sfx, volume: Float) {
-        if (muted) return
-        val id = effects[sfx] ?: return
+        start(sfx, volume)
+    }
+
+    override fun start(sfx: Sfx, volume: Float): Int {
+        // nothing sounds from the background, such as a message arriving or a call still ringing
+        if (muted || !visible) return 0
+        val id = effects[sfx] ?: return 0
         val v = (volume * EFFECTS_LEVEL).coerceIn(0f, 1f)
-        pool.play(id, v, v, 1, 0, 1f)
+        return pool.play(id, v, v, 1, 0, 1f)
+    }
+
+    override fun stop(id: Int) {
+        if (id != 0) pool.stop(id)
     }
 
     override fun ambience(on: Boolean) {
@@ -168,6 +177,20 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
         Sfx.AppOpen -> R.raw.sfx_app_open
         Sfx.AppClose -> R.raw.sfx_app_close
         Sfx.Offline -> R.raw.sfx_offline
+        Sfx.Key1 -> R.raw.sfx_key_1
+        Sfx.Key2 -> R.raw.sfx_key_2
+        Sfx.Key3 -> R.raw.sfx_key_3
+        Sfx.Key4 -> R.raw.sfx_key_4
+        Sfx.Key5 -> R.raw.sfx_key_5
+        Sfx.Key6 -> R.raw.sfx_key_6
+        Sfx.Key7 -> R.raw.sfx_key_7
+        Sfx.Key8 -> R.raw.sfx_key_8
+        Sfx.Key9 -> R.raw.sfx_key_9
+        Sfx.KeyStar -> R.raw.sfx_key_star
+        Sfx.Key0 -> R.raw.sfx_key_0
+        Sfx.KeyHash -> R.raw.sfx_key_hash
+        Sfx.Ringback -> R.raw.sfx_ringback
+        Sfx.CallEnd -> R.raw.sfx_call_end
     }
 
     private companion object {

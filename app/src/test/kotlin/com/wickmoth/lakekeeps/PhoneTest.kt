@@ -1,9 +1,12 @@
 package com.wickmoth.lakekeeps
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -19,6 +22,8 @@ import com.wickmoth.lakekeeps.game.Owner
 import com.wickmoth.lakekeeps.game.Stage
 import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Threads
+import com.wickmoth.lakekeeps.game.phone.CallKind
+import com.wickmoth.lakekeeps.game.phone.CallLog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
@@ -38,12 +43,13 @@ class PhoneTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val messages = Messages()
+    private val calls = CallLog()
     private var now = 0L
 
     /** The case board with [owner]'s phone already held up and awake. */
     private fun holding(owner: Owner) {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = owner, boardSettled = true, messages = messages)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = owner, boardSettled = true, messages = messages, calls = calls)) }
     }
 
     /** Advances the frame clock to [ms] since the first frame, capturing the screen if [name] is given. */
@@ -66,6 +72,9 @@ class PhoneTest {
     }
 
     private fun tap(label: String) = compose.onNodeWithContentDescription(label).performClick()
+
+    /** A keypad key (the number display can carry the same text, but isn't a button). */
+    private fun key(k: Char) = compose.onNode(hasContentDescription(k.toString()) and hasClickAction()).performClick()
 
     private fun back() = compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
 
@@ -202,5 +211,81 @@ class PhoneTest {
         at(1100, "36_mira_inbox")
         tap("night_heron")
         at(1600, "37_heron_chat")
+    }
+
+    @Test fun phoneAppDialsAndHangsUp() {
+        holding(Owner.Mira)
+        at(500)
+        tap("Phone")
+        at(620, "40_phone_open_0120")
+        at(1100, "40_mira_recents")
+
+        tap("Keypad")
+        at(now + 150, "41_keypad_0150")
+        at(now + 500, "41_keypad")
+        for (k in "5550103") {
+            key(k)
+            at(now + 90)
+        }
+        at(now + 40, "42_number_typed_0040")
+        at(now + 300, "42_number_typed")
+        compose.onNodeWithContentDescription("555-0103").assertExists()
+        tap("Delete")
+        at(now + 250, "42_digit_deleted")
+        compose.onNodeWithContentDescription("555-010").assertExists()
+        key('3')
+        at(now + 250)
+
+        tap("Call")
+        at(now + 120, "43_calling_0120")
+        at(now + 500, "43_calling")
+        compose.onNodeWithText("Theo").assertExists()
+        compose.onNodeWithText("calling…").assertExists()
+        at(now + 1100, "43_ringing")
+        // No leaving mid-call: back only shakes the call.
+        back()
+        at(now + 60, "43_back_refused_0060")
+        at(now + 600)
+        compose.onNodeWithContentDescription("End call").assertExists()
+
+        tap("End call")
+        at(now + 120, "44_ended_0120")
+        at(now + 700, "44_ended")
+        compose.onNodeWithText("ended").assertExists()
+        at(now + 1300, "44_back_to_keypad")
+        compose.onNodeWithContentDescription("Call").assertExists()
+        compose.onNodeWithContentDescription("Delete").assertDoesNotExist()
+
+        tap("Recent calls")
+        at(now + 500, "45_recents_after_call")
+        compose.onNodeWithContentDescription("Outgoing call to Theo, now").assertExists()
+        assertEquals(CallKind.Outgoing, calls.calls(Owner.Mira).first().kind)
+
+        back()
+        at(now + 170, "45_phone_closing_0170")
+        at(now + 400, "45_mira_home_after_call")
+    }
+
+    @Test fun callRingsOutWhileTheBannerWaits() {
+        holding(Owner.Theo)
+        at(300)
+        tap("Phone")
+        at(800, "46_theo_recents")
+        compose.onAllNodesWithContentDescription("Call Mira").onFirst().performClick()
+        // The private number's first message lands mid-call; its banner can't take the player away.
+        val banner = "Private number: Theo. 1 unread message"
+        until(banner)
+        at(now + 600, "46_banner_during_call")
+        tap(banner)
+        at(now + 80, "46_banner_refused_0080")
+        at(now + 500)
+        compose.onNodeWithContentDescription("End call").assertExists()
+        compose.onNodeWithText("Mira").assertExists()
+
+        until("ended", text = true)
+        at(now + 120, "47_rang_out_0120")
+        at(now + 1700)
+        at(now + 400, "47_recents_after_ring_out")
+        compose.onNodeWithContentDescription("Outgoing call to Mira, now").assertExists()
     }
 }

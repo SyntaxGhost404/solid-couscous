@@ -1,7 +1,11 @@
 package com.wickmoth.lakekeeps
 
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wickmoth.lakekeeps.game.GameRoot
@@ -35,4 +39,25 @@ class AspectTest {
 
     @Config(sdk = [36], qualifiers = "w360dp-h860dp-xhdpi")
     @Test fun tallBoard() = board("9_aspect_tall_board")
+
+    /** On a short screen the keys give up some height so the number keeps its room. */
+    @Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
+    @Test fun wide16x9Keypad() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Mira, boardSettled = true)) }
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithContentDescription("Phone").performClick()
+        compose.mainClock.advanceTimeBy(700)
+        compose.onNodeWithContentDescription("Keypad").performClick()
+        compose.mainClock.advanceTimeBy(600)
+        for (k in "5550142") {
+            compose.onNode(hasContentDescription(k.toString()) and hasClickAction()).performClick()
+            compose.mainClock.advanceTimeBy(100)
+        }
+        compose.mainClock.advanceTimeBy(500)
+        compose.onRoot().captureRoboImage("build/shots/9_aspect_16x9_keypad.png")
+        compose.onNodeWithContentDescription("Call").performClick()
+        compose.mainClock.advanceTimeBy(2000)
+        compose.onRoot().captureRoboImage("build/shots/9_aspect_16x9_calling.png")
+    }
 }

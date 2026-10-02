@@ -20,6 +20,8 @@ import com.wickmoth.lakekeeps.game.Owner
 import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Notice
 import com.wickmoth.lakekeeps.game.messages.Thread
+import com.wickmoth.lakekeeps.game.phone.CallLog
+import com.wickmoth.lakekeeps.screens.phone.calls.Dialer
 import com.wickmoth.lakekeeps.ui.Ease
 import com.wickmoth.lakekeeps.ui.Haptic
 import com.wickmoth.lakekeeps.ui.haptic
@@ -28,21 +30,27 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** The apps that open on the in-game phones. */
+enum class PhoneApp { Messages, Calls }
+
 /**
- * Everything that moves inside a held phone: the Messages app window opening from where it was
- * launched, the inbox and chat, the notification shade and the heads-up banner.
+ * Everything that moves inside a held phone: an app's window opening from where it was launched,
+ * the Messages inbox and chat, the Phone app's dialer, the notification shade and the banner.
  */
 @Stable
 class PhoneOs internal constructor(
     val owner: Owner,
     val messages: Messages,
+    val calls: CallLog,
     private val scope: CoroutineScope,
     private val audio: GameAudio,
     private val feedback: (Haptic) -> Unit,
 ) {
-    /** The Messages window is on screen (including while it opens or closes). */
-    var appOpen by mutableStateOf(false)
+    /** The app on screen (including while its window opens or closes), if any. */
+    var app by mutableStateOf<PhoneApp?>(null)
         private set
+
+    val appOpen: Boolean get() = app != null
 
     /** 0 = shrunk into [launchedFrom], 1 = full screen. */
     val appIn = Animatable(0f)
@@ -51,8 +59,11 @@ class PhoneOs internal constructor(
     var launchedFrom by mutableStateOf(Rect.Zero)
         private set
 
-    /** The Messages icon on the home screen, where the app always shrinks back to when closed. */
-    var appIcon = Rect.Zero
+    /** Each app's icon on the home screen, where its window always shrinks back to when closed. */
+    var appIcons: Map<PhoneApp, Rect> = emptyMap()
+
+    /** The Phone app's pages, number and call. */
+    val dialer = Dialer(owner, calls, { messages.clock }, scope, audio, feedback)
 
     /** The open conversation; null shows the inbox. */
     var thread by mutableStateOf<Thread?>(null)
@@ -77,18 +88,30 @@ class PhoneOs internal constructor(
 
     val contactOpen: Boolean get() = contact.targetValue > 0f
 
+    /**
+     * A call or a live conversation has the player's attention: they can't put the phone down or
+     * jump to a notification until it is over.
+     */
+    val busy: Boolean
+        get() = dialer.inCall || (app == PhoneApp.Messages && thread?.let(messages::isLive) == true)
+
     fun feedback(kind: Haptic) = feedback.invoke(kind)
 
-    fun openApp(from: Rect, thread: Thread? = null) {
-        if (appOpen) {
+    /** Opens [app] out of [from] (optionally straight into [thread]); another open app gives way. */
+    fun openApp(app: PhoneApp, from: Rect, thread: Thread? = null) {
+        if (this.app == app) {
             thread?.let(::openThread)
             return
         }
-        launchedFrom = from
-        this.thread = thread
-        appOpen = true
+        val switching = this.app != null
         audio.play(Sfx.AppOpen)
+        if (!switching) show(app, from, thread)
         scope.launch {
+            if (switching) {
+                // the other app's window closes at once, under the new one growing in
+                appIn.snapTo(0f)
+                show(app, from, thread)
+            }
             contact.snapTo(0f)
             chatIn.snapTo(if (thread != null) 1f else 0f)
             appIn.snapTo(0f)
@@ -96,13 +119,20 @@ class PhoneOs internal constructor(
         }
     }
 
+    private fun show(app: PhoneApp, from: Rect, thread: Thread?) {
+        launchedFrom = from
+        this.app = app
+        this.thread = thread
+    }
+
     fun closeApp() {
-        if (!appOpen || appIn.targetValue == 0f) return
+        val app = app ?: return
+        if (appIn.targetValue == 0f) return
         audio.play(Sfx.AppClose)
-        if (appIcon != Rect.Zero) launchedFrom = appIcon
+        appIcons[app]?.let { launchedFrom = it }
         scope.launch {
             appIn.animateTo(0f, tween(340, easing = FastOutSlowInEasing))
-            appOpen = false
+            this@PhoneOs.app = null
             thread = null
             chatIn.snapTo(0f)
         }
@@ -202,8 +232,16 @@ class PhoneOs internal constructor(
         }
     }
 
-    /** Opens a notification's conversation, closing whatever surface it was shown on. */
-    fun openNotice(notice: Notice, from: Rect) {
+    /**
+     * Opens a notification's conversation, closing whatever surface it was shown on. While the
+     * player is [busy] it refuses instead and returns false, so the notification can shake.
+     */
+    fun openNotice(notice: Notice, from: Rect): Boolean {
+        if (busy) {
+            audio.play(Sfx.Denied, 0.6f)
+            feedback(Haptic.Reject)
+            return false
+        }
         headsUpJob?.cancel()
         scope.launch {
             headsUpIn.snapTo(0f)
@@ -212,7 +250,8 @@ class PhoneOs internal constructor(
         if (shade.targetValue > 0f) {
             scope.launch { shade.animateTo(0f, spring(dampingRatio = 0.9f, stiffness = 420f)) }
         }
-        openApp(from, notice.thread)
+        openApp(PhoneApp.Messages, from, notice.thread)
+        return true
     }
 
     private companion object {
@@ -221,9 +260,9 @@ class PhoneOs internal constructor(
 }
 
 @Composable
-fun rememberPhoneOs(owner: Owner, messages: Messages): PhoneOs {
+fun rememberPhoneOs(owner: Owner, messages: Messages, calls: CallLog): PhoneOs {
     val scope = rememberCoroutineScope()
     val audio = LocalAudio.current
     val view = LocalView.current
-    return remember(owner, messages) { PhoneOs(owner, messages, scope, audio) { view.haptic(it) } }
+    return remember(owner, messages, calls) { PhoneOs(owner, messages, calls, scope, audio) { view.haptic(it) } }
 }

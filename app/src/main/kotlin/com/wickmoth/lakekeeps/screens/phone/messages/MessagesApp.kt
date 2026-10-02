@@ -43,8 +43,9 @@ import com.wickmoth.lakekeeps.R
 import com.wickmoth.lakekeeps.game.messages.Day
 import com.wickmoth.lakekeeps.game.messages.Thread
 import com.wickmoth.lakekeeps.game.messages.formatClock
+import com.wickmoth.lakekeeps.screens.phone.AppHeader
 import com.wickmoth.lakekeeps.screens.phone.Glyph
-import com.wickmoth.lakekeeps.screens.phone.GlyphIcon
+import com.wickmoth.lakekeeps.screens.phone.HeaderButton
 import com.wickmoth.lakekeeps.screens.phone.PhoneColors
 import com.wickmoth.lakekeeps.screens.phone.PhoneOs
 import com.wickmoth.lakekeeps.screens.phone.PhoneText
@@ -57,9 +58,6 @@ import com.wickmoth.lakekeeps.ui.tactile
 import com.wickmoth.lakekeeps.ui.window
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
-
-/** Height of the dark band behind the status bar and an app screen's title row. */
-internal val HeaderHeight = 148.dp
 
 /** The Messages app: the inbox, with a conversation sliding in over it. */
 @Composable
@@ -189,49 +187,6 @@ private fun InboxRow(os: PhoneOs, thread: Thread, appear: () -> Float, onOpen: (
                 }
             }
         }
-    }
-}
-
-/** The dark band at the top of an app screen; [content] is laid out in its title row. */
-@Composable
-internal fun AppHeader(content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(HeaderHeight)
-            .background(PhoneColors.Header),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        Box(
-            Modifier
-                .widthIn(max = 360.dp)
-                .fillMaxWidth()
-                .height(76.dp),
-            content = content,
-        )
-    }
-}
-
-@Composable
-internal fun HeaderButton(glyph: Glyph, label: String, modifier: Modifier = Modifier, visible: () -> Float = { 1f }, onTap: () -> Unit) {
-    val press = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-    Box(
-        modifier
-            .size(44.dp)
-            .graphicsLayer {
-                val v = visible()
-                alpha = v
-                val s = (1f - 0.12f * press.value) * (0.8f + 0.2f * v)
-                scaleX = s
-                scaleY = s
-            }
-            .tactile(label, onPress = { down -> scope.launch { press.animateTo(if (down) 1f else 0f, spring(stiffness = 800f)) } }) {
-                if (visible() > 0.5f) onTap()
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        GlyphIcon(glyph, PhoneColors.Text, Modifier.size(24.dp))
     }
 }
 

@@ -72,7 +72,9 @@ import com.wickmoth.lakekeeps.game.messages.Day
 import com.wickmoth.lakekeeps.game.messages.Line
 import com.wickmoth.lakekeeps.game.messages.Thread
 import com.wickmoth.lakekeeps.game.messages.formatClock
+import com.wickmoth.lakekeeps.screens.phone.AppHeader
 import com.wickmoth.lakekeeps.screens.phone.Glyph
+import com.wickmoth.lakekeeps.screens.phone.HeaderButton
 import com.wickmoth.lakekeeps.screens.phone.PhoneColors
 import com.wickmoth.lakekeeps.screens.phone.PhoneOs
 import com.wickmoth.lakekeeps.screens.phone.PhoneText

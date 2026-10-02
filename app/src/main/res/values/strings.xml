@@ -95,4 +95,25 @@
     <string name="presence_offline">offline</string>
     <string name="contact_details">Contact details for %1$s</string>
     <string name="reply_option">Reply: %1$s</string>
+
+    <!-- In-game phones: Phone app -->
+    <string name="keypad">Keypad</string>
+    <string name="recent_calls">Recent calls</string>
+    <string name="call">Call</string>
+    <string name="end_call">End call</string>
+    <string name="delete">Delete</string>
+    <string name="clear">Clear</string>
+    <string name="key_star">Star</string>
+    <string name="key_hash">Hash</string>
+    <string name="call_contact">Call %1$s</string>
+    <string name="call_calling">calling…</string>
+    <string name="call_ended">ended</string>
+    <string name="call_not_saved">Not in contacts</string>
+    <string name="call_outgoing">Outgoing call to %1$s, %2$s</string>
+    <string name="call_incoming">Call from %1$s, %2$s</string>
+    <string name="call_missed">Missed call from %1$s, %2$s</string>
+    <string name="ago_now">now</string>
+    <string name="ago_minutes">%1$dm ago</string>
+    <string name="ago_hours">%1$dh ago</string>
+    <string name="ago_days">%1$dd ago</string>
 </resources>

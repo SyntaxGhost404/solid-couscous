@@ -1,5 +1,7 @@
 package com.wickmoth.lakekeeps
 
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -108,5 +110,31 @@ class FlowTest {
         compose.onNodeWithText("You've walked past me a hundred times.").assertExists()
         compose.onNodeWithText("Small town. People watch the pier.").assertExists()
         compose.onNodeWithText("Private number is offline").assertExists()
+    }
+
+    @Test fun callIsLoggedAndSavedWithTheGame() {
+        skipToBoard()
+        compose.onNodeWithContentDescription("Mira's phone, on the desk").performClick()
+        compose.mainClock.advanceTimeBy(1_600)
+        compose.onNodeWithContentDescription("Phone").performClick()
+        until(label = "Keypad")
+        compose.onNodeWithContentDescription("Keypad").performClick()
+        compose.mainClock.advanceTimeBy(600)
+        for (k in "5550142") {
+            compose.onNode(hasContentDescription(k.toString()) and hasClickAction()).performClick()
+            compose.mainClock.advanceTimeBy(100)
+        }
+        compose.onNodeWithContentDescription("Call").performClick()
+        until(text = "calling…", settleMs = 1_500)
+        compose.onNodeWithText("Priya").assertExists()
+        compose.onNodeWithContentDescription("End call").performClick()
+        until(text = "ended", settleMs = 2_000)
+
+        // Recreated: the phone comes back on its home screen, and the call is still in the log.
+        compose.activityRule.scenario.recreate()
+        compose.mainClock.advanceTimeBy(1_500)
+        compose.onNodeWithContentDescription("Phone").performClick()
+        compose.mainClock.advanceTimeBy(800)
+        compose.onNodeWithContentDescription("Outgoing call to Priya, now").assertExists()
     }
 }

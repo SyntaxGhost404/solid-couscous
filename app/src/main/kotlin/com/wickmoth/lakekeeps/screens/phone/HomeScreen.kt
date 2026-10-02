@@ -112,10 +112,10 @@ internal const val ICONS_MS = 760f
 /**
  * A phone's home screen at full size. [content] (0..1) drives the staggered arrival of the icons,
  * so the same screen can be shown while it is still being lifted. The Messages icon carries the
- * [unread] badge and opens the app from its tile.
+ * [unread] badge; Messages and Phone open their apps from their tiles.
  */
 @Composable
-fun HomeScreen(owner: Owner, content: () -> Float, unread: () -> Int, onOpenMessages: () -> Unit, modifier: Modifier = Modifier) {
+fun HomeScreen(owner: Owner, content: () -> Float, unread: () -> Int, onOpen: (PhoneApp) -> Unit, modifier: Modifier = Modifier) {
     val spec = remember(owner) { phoneSpec(owner) }
     val fit = rememberFrameFit(Alignment.TopCenter)
     Box(modifier.fillMaxSize().background(Color.Black)) {
@@ -139,10 +139,10 @@ fun HomeScreen(owner: Owner, content: () -> Float, unread: () -> Int, onOpenMess
         )
         DesignFrame(fit) {
             spec.apps.forEachIndexed { i, app ->
-                if (app.label == R.string.app_messages) {
-                    AppIcon(app, i, content, badge = unread, onOpen = onOpenMessages)
-                } else {
-                    AppIcon(app, i, content)
+                when (app.label) {
+                    R.string.app_messages -> AppIcon(app, i, content, badge = unread, onOpen = { onOpen(PhoneApp.Messages) })
+                    R.string.app_phone -> AppIcon(app, i, content, onOpen = { onOpen(PhoneApp.Calls) })
+                    else -> AppIcon(app, i, content)
                 }
             }
         }
@@ -275,7 +275,7 @@ private fun BoxScope.UnreadBadge(count: () -> Int, appear: () -> Float) {
                 scaleY = s
                 alpha = pop.value.coerceIn(0f, 1f)
             }
-            .background(BadgeRed, CircleShape)
+            .background(PhoneColors.Alert, CircleShape)
             .clearAndSetSemantics { },
         contentAlignment = Alignment.Center,
     ) {
@@ -285,5 +285,3 @@ private fun BoxScope.UnreadBadge(count: () -> Int, appear: () -> Float) {
         )
     }
 }
-
-private val BadgeRed = Color(0xFFE5484D)

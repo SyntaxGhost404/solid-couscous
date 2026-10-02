@@ -5,27 +5,68 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.vector.PathParser
 
 /** Plain line glyphs for the in-game phone UI, drawn on a 24-unit grid. */
-enum class Glyph { Back, Close, SoundOn, SoundOff, Message }
+enum class Glyph { Back, Close, SoundOn, SoundOff, Message, Handset, Keypad, Recents, Backspace, CallOut, CallIn, CallMissed }
 
 @Composable
-fun GlyphIcon(glyph: Glyph, color: Color, modifier: Modifier = Modifier, alpha: () -> Float = { 1f }) {
-    Canvas(modifier) { drawGlyph(glyph, color, alpha()) }
+fun GlyphIcon(glyph: Glyph, color: Color, modifier: Modifier = Modifier, alpha: () -> Float = { 1f }, turn: () -> Float = { 0f }) {
+    Canvas(modifier) { drawGlyph(glyph, color, alpha(), turn()) }
 }
 
-fun DrawScope.drawGlyph(glyph: Glyph, color: Color, alpha: Float = 1f) {
+/** A handset upright, opening to the right; drawn turned 45 degrees back, as phone icons stand. */
+private val UprightHandset: Path by lazy {
+    val handle = Path().apply {
+        // a thick arc around the left, from the earpiece down to the mouthpiece
+        arcTo(Rect(Offset(15f, 12f), 9f), 120f, 120f, forceMoveTo = true)
+        arcTo(Rect(Offset(15f, 12f), 5.2f), 240f, -120f, forceMoveTo = false)
+        close()
+    }
+    val earpiece = Path().apply { addRoundRect(RoundRect(Rect(9.6f, 2.4f, 17.6f, 7.6f), CornerRadius(2.2f))) }
+    val mouthpiece = Path().apply { addRoundRect(RoundRect(Rect(9.6f, 16.4f, 17.6f, 21.6f), CornerRadius(2.2f))) }
+    val body = Path()
+    body.op(handle, earpiece, PathOperation.Union)
+    Path().apply { op(body, mouthpiece, PathOperation.Union) }
+}
+
+private val BackspaceOutline: Path by lazy {
+    PathParser().parsePathString("M9 5.5H19.5Q21.5 5.5 21.5 7.5V16.5Q21.5 18.5 19.5 18.5H9L2.5 12Z").toPath()
+}
+
+/**
+ * Draws [glyph] centred in the current size. [turn] rotates it in degrees; the handset turned 135
+ * degrees is the hang-up handset.
+ */
+fun DrawScope.drawGlyph(glyph: Glyph, color: Color, alpha: Float = 1f, turn: Float = 0f) {
     val u = size.minDimension / 24f
     val o = Offset((size.width - 24f * u) / 2f, (size.height - 24f * u) / 2f)
     fun p(x: Float, y: Float) = Offset(o.x + x * u, o.y + y * u)
     val stroke = Stroke(width = 2f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    fun line(vararg points: Float) {
+        val path = Path().apply {
+            moveTo(p(points[0], points[1]).x, p(points[0], points[1]).y)
+            for (i in 2 until points.size step 2) lineTo(p(points[i], points[i + 1]).x, p(points[i], points[i + 1]).y)
+        }
+        drawPath(path, color, alpha = alpha, style = stroke)
+    }
+    // paths authored on the 24-unit grid are drawn through this, so their strokes scale with them
+    fun onGrid(block: DrawScope.() -> Unit) = withTransform({
+        translate(o.x, o.y)
+        scale(u, u, pivot = Offset.Zero)
+    }, block)
     when (glyph) {
         Glyph.Back -> {
             val path = Path().apply {
@@ -59,6 +100,36 @@ fun DrawScope.drawGlyph(glyph: Glyph, color: Color, alpha: Float = 1f) {
                 moveTo(p(7.5f, 17f).x, p(7.5f, 17f).y); lineTo(p(6f, 20.5f).x, p(6f, 20.5f).y); lineTo(p(11f, 17f).x, p(11f, 17f).y)
             }
             drawPath(tail, color, alpha = alpha, style = stroke)
+        }
+        Glyph.Handset -> onGrid {
+            rotate(turn - 45f, pivot = Offset(12f, 12f)) {
+                drawPath(UprightHandset, color, alpha = alpha, style = Stroke(width = 1.8f, join = StrokeJoin.Round))
+            }
+        }
+        Glyph.Keypad -> {
+            for (row in 0..2) for (col in 0..2) drawCircle(color, 1.7f * u, p(6f + col * 6f, 4.5f + row * 5.5f), alpha = alpha)
+            drawCircle(color, 1.7f * u, p(12f, 21f), alpha = alpha)
+        }
+        Glyph.Recents -> {
+            drawCircle(color, 8.5f * u, p(12f, 12f), alpha = alpha, style = stroke)
+            line(12f, 7.5f, 12f, 12f, 15.5f, 14f)
+        }
+        Glyph.Backspace -> {
+            onGrid { drawPath(BackspaceOutline, color, alpha = alpha, style = Stroke(width = 2f, join = StrokeJoin.Round)) }
+            line(12.5f, 9f, 17.5f, 15f)
+            line(17.5f, 9f, 12.5f, 15f)
+        }
+        Glyph.CallOut -> {
+            line(6.5f, 17.5f, 17f, 7f)
+            line(9.5f, 7f, 17f, 7f, 17f, 14.5f)
+        }
+        Glyph.CallIn -> {
+            line(17.5f, 6.5f, 7f, 17f)
+            line(7f, 9.5f, 7f, 17f, 14.5f, 17f)
+        }
+        Glyph.CallMissed -> {
+            line(3.5f, 8f, 10.5f, 15f, 20f, 5.5f)
+            line(14.5f, 5.5f, 20f, 5.5f, 20f, 11f)
         }
     }
 }
