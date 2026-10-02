@@ -1,0 +1,69 @@
+<resources>
+    <string name="app_name">What the Lake Keeps</string>
+    <string name="studio_name" translatable="false">wickmoth</string>
+    <string name="advisory">Use headphones for a\nbetter experience</string>
+    <string name="title_lead">What the</string>
+    <string name="title_main">Lake Keeps</string>
+
+    <!-- Case board: names written on the polaroids -->
+    <string name="name_mira">Mira</string>
+    <string name="name_jonah">Jonah</string>
+    <string name="name_priya">Priya</string>
+    <string name="name_owen">Owen</string>
+    <string name="name_celia">Celia</string>
+    <string name="name_marcus">Marcus</string>
+    <string name="name_ines">Ines</string>
+    <string name="name_felix">Felix</string>
+    <string name="name_rosa">Rosa</string>
+    <string name="name_heron">heron?</string>
+    <string name="name_unknown">Unknown</string>
+
+    <!-- Case board: handwritten notes -->
+    <string name="note_missing">missing 2nd nov</string>
+    <string name="note_last_seen">9:40 pm</string>
+    <string name="note_jonah">her ex</string>
+    <string name="note_priya">best friend</string>
+    <string name="note_priya_doubt">left early. why?</string>
+    <string name="note_owen">hosted the bonfire</string>
+    <string name="note_celia">Owen\'s sister</string>
+    <string name="note_heron">messaged her daily</string>
+    <string name="note_handle" translatable="false">night_heron</string>
+    <string name="note_handle_doubt">\?\?</string>
+    <string name="note_marcus">drove her home??</string>
+    <string name="note_ines">roommate</string>
+    <string name="note_felix">texted her 11:52 pm</string>
+    <string name="note_rosa">runs the boathouse</string>
+    <string name="note_unknown">seen at the pier</string>
+    <string name="note_mark">carved on the dock</string>
+
+    <!-- Case board: accessibility labels -->
+    <string name="photo_of">Photo of %1$s</string>
+    <string name="desk_case_file">Case file</string>
+    <string name="desk_newspaper">Newspaper</string>
+    <string name="desk_notepad">Notepad</string>
+    <string name="desk_mug">Coffee mug</string>
+    <string name="desk_phone">%1$s, on the desk</string>
+    <string name="clue_handle">Username tag</string>
+    <string name="clue_mark">Symbol drawn on the board</string>
+    <string name="clue_note">Crumpled note</string>
+
+    <!-- In-game phones -->
+    <string name="phone_theo">Theo\'s phone</string>
+    <string name="phone_mira">Mira\'s phone</string>
+    <string name="back_to_board">Back to the case board</string>
+    <string name="app_unavailable">%1$s, unavailable</string>
+    <string name="app_messages">Messages</string>
+    <string name="app_phone">Phone</string>
+    <string name="app_calculator">Calculator</string>
+    <string name="app_browser">Browser</string>
+    <string name="app_notes">Notes</string>
+    <string name="app_archive">Archive</string>
+    <string name="app_loose_ends">Loose Ends</string>
+    <string name="app_settings">Settings</string>
+    <string name="app_mail">Mail</string>
+    <string name="app_gallery">Gallery</string>
+    <string name="app_picnook">Picnook</string>
+    <string name="app_diary">Diary</string>
+    <string name="app_files">Files</string>
+    <string name="app_mooncrush">Mooncrush</string>
+</resources>

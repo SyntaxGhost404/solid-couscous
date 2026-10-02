@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- Illustrations are generated vectors (tools/art) drawn large on purpose; Compose
+         rasterizes each once per size, so these icon-oriented checks do not apply. -->
+    <issue id="VectorRaster" severity="ignore" />
+    <issue id="VectorPath" severity="ignore" />
+</lint>

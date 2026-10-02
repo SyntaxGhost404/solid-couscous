@@ -1,0 +1,18 @@
+<resources>
+    <color name="night">#FF060A0D</color>
+
+    <style name="Base.Theme.LakeKeeps" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/night</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.LakeKeeps" parent="Base.Theme.LakeKeeps" />
+
+    <!-- System splash: the night colour with no icon, so the studio ident follows without a seam. -->
+    <style name="Theme.LakeKeeps.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/night</item>
+        <item name="windowSplashScreenAnimatedIcon">@android:color/transparent</item>
+        <item name="postSplashScreenTheme">@style/Theme.LakeKeeps</item>
+    </style>
+</resources>
