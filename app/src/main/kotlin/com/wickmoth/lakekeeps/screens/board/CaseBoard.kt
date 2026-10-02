@@ -182,8 +182,9 @@ internal fun CaseBoard(
     }
 }
 
+/** The slate board and the desk, painted once per window size, fading up with the [intro]. */
 @Composable
-private fun Backdrop(fit: FrameFit, intro: Sequence) {
+internal fun Backdrop(fit: FrameFit, intro: Sequence) {
     val density = LocalDensity.current
     Box(
         Modifier

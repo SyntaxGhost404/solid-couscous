@@ -23,6 +23,7 @@ import com.wickmoth.lakekeeps.game.GameRoot
 import com.wickmoth.lakekeeps.game.GameState
 import com.wickmoth.lakekeeps.game.Owner
 import com.wickmoth.lakekeeps.game.Stage
+import com.wickmoth.lakekeeps.game.case.CaseId
 import com.wickmoth.lakekeeps.game.mail.MailBox
 import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Threads
@@ -56,7 +57,7 @@ class PhoneTest {
     /** The case board with [owner]'s phone already held up and awake. */
     private fun holding(owner: Owner) {
         compose.mainClock.autoAdvance = false
-        state = GameState(Stage.Board, phone = owner, boardSettled = true, messages = messages, calls = calls, mail = mail)
+        state = GameState(Stage.Board, phone = owner, boardSettled = true, case = CaseId.Prototype, messages = messages, calls = calls, mail = mail)
         compose.setContent { GameRoot(state) }
     }
 

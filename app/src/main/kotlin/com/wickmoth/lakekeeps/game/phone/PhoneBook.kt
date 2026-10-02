@@ -1,12 +1,13 @@
 package com.wickmoth.lakekeeps.game.phone
 
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.littlebird.SamsPhone
 import com.wickmoth.lakekeeps.game.messages.clockMinutes
 
 /**
- * Placeholder address books and call history for the prototype. The story is not final: edit
- * freely. Numbers are in the 555-01xx range set aside for fiction, and match the contact details
- * shown in Messages.
+ * Every phone's address book and call history: the prototype's placeholders for Theo and Mira,
+ * and Sam's from [SamsPhone]. Numbers are in the 555-01xx range set aside for fiction, and match
+ * the contact details shown in Messages.
  */
 object PhoneBook {
     private val theoContacts = listOf(
@@ -60,12 +61,14 @@ object PhoneBook {
     fun contacts(owner: Owner): List<PhoneContact> = when (owner) {
         Owner.Theo -> theoContacts
         Owner.Mira -> miraContacts
+        Owner.Sam -> SamsPhone.contacts
     }
 
     /** The phone's calls from before the game began, newest first. */
     fun history(owner: Owner): List<Call> = when (owner) {
         Owner.Theo -> theoHistory
         Owner.Mira -> miraHistory
+        Owner.Sam -> SamsPhone.history
     }.sortedWith(compareBy<Call> { it.daysAgo }.thenByDescending { it.minutes })
 
     /** The saved contact with this number on [owner]'s phone, however the number is written. */

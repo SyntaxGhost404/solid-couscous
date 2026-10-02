@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wickmoth.lakekeeps.R
+import com.wickmoth.lakekeeps.game.case.case
 import com.wickmoth.lakekeeps.game.messages.Day
 import com.wickmoth.lakekeeps.game.messages.Thread
 import com.wickmoth.lakekeeps.game.messages.formatClock
@@ -49,7 +50,9 @@ import com.wickmoth.lakekeeps.screens.phone.HeaderButton
 import com.wickmoth.lakekeeps.screens.phone.PhoneColors
 import com.wickmoth.lakekeeps.screens.phone.PhoneOs
 import com.wickmoth.lakekeeps.screens.phone.PhoneText
+import com.wickmoth.lakekeeps.screens.phone.dayShort
 import com.wickmoth.lakekeeps.screens.phone.phoneText
+import com.wickmoth.lakekeeps.screens.phone.preview
 import com.wickmoth.lakekeeps.ui.DesignScale
 import com.wickmoth.lakekeeps.ui.Ease
 import com.wickmoth.lakekeeps.ui.FrameFit
@@ -169,7 +172,7 @@ private fun InboxRow(os: PhoneOs, thread: Thread, appear: () -> Float, onOpen: (
             Spacer(Modifier.height(3.dp))
             val you = if (last.mine) "You: " else ""
             PhoneText(
-                you + last.text,
+                you + preview(last),
                 phoneText(14.sp, if (unread > 0) FontWeight.SemiBold else FontWeight.Medium, if (unread > 0) PhoneColors.Text else PhoneColors.TextMuted),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -177,7 +180,7 @@ private fun InboxRow(os: PhoneOs, thread: Thread, appear: () -> Float, onOpen: (
         }
         Spacer(Modifier.width(10.dp))
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            val time = if (last.day == Day.Today) formatClock(last.minutes) else stringResource(last.day.short)
+            val time = if (last.day == Day.Today) formatClock(last.minutes) else dayShort(last.day, os.owner.case.calendar)
             PhoneText(time, phoneText(12.sp, color = if (unread > 0) PhoneColors.Accent else PhoneColors.TextFaint))
             Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) {
                 if (unread > 0) {

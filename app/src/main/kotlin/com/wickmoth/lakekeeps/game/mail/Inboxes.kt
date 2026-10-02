@@ -1,11 +1,12 @@
 package com.wickmoth.lakekeeps.game.mail
 
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.littlebird.SamsPhone
 import com.wickmoth.lakekeeps.game.messages.clockMinutes
 
 /**
- * Placeholder inboxes for the prototype. The story is not final: edit freely. Senders and
- * businesses are invented, and addresses use the reserved .example domain.
+ * Every phone's inbox: the prototype's placeholders for Theo and Mira, and Sam's from
+ * [SamsPhone]. Senders and businesses are invented, and addresses use the reserved .example domain.
  */
 object Inboxes {
     private fun mail(
@@ -158,9 +159,10 @@ object Inboxes {
     fun of(owner: Owner): List<Email> = when (owner) {
         Owner.Theo -> theo
         Owner.Mira -> mira
+        Owner.Sam -> SamsPhone.inbox
     }
 
-    val all: List<Email> = mira + theo
+    val all: List<Email> get() = mira + theo + SamsPhone.inbox
 
     fun byId(id: String): Email? = all.firstOrNull { it.id == id }
 }

@@ -15,6 +15,13 @@ import com.wickmoth.lakekeeps.game.GameRoot
 import com.wickmoth.lakekeeps.game.GameState
 import com.wickmoth.lakekeeps.game.Owner
 import com.wickmoth.lakekeeps.game.Stage
+import com.wickmoth.lakekeeps.game.case.CaseId
+import com.wickmoth.lakekeeps.game.littlebird.Flag
+import com.wickmoth.lakekeeps.game.littlebird.LittleBird
+import com.wickmoth.lakekeeps.game.littlebird.SamsPhone
+import com.wickmoth.lakekeeps.game.littlebird.Symptom
+import com.wickmoth.lakekeeps.game.messages.Messages
+import com.wickmoth.lakekeeps.game.messages.Thread
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -29,7 +36,7 @@ class AspectTest {
 
     private fun board(name: String, phone: Owner? = null) {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = phone, boardSettled = true)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = phone, boardSettled = true, case = CaseId.Prototype)) }
         compose.mainClock.advanceTimeBy(1500)
         compose.onRoot().captureRoboImage("build/shots/$name.png")
     }
@@ -47,7 +54,7 @@ class AspectTest {
     @Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
     @Test fun wide16x9Keypad() {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Mira, boardSettled = true)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Mira, boardSettled = true, case = CaseId.Prototype)) }
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithContentDescription("Phone").performClick()
         compose.mainClock.advanceTimeBy(700)
@@ -64,11 +71,72 @@ class AspectTest {
         compose.onRoot().captureRoboImage("build/shots/9_aspect_16x9_calling.png")
     }
 
+    /** Plays [thread] as far as it goes right now, with the first reply to everything. */
+    private fun Messages.playOut(thread: Thread) {
+        while (true) {
+            if (nextLine(thread) != null) {
+                deliver(thread)
+                continue
+            }
+            question(thread) ?: break
+            choose(thread, 0)
+        }
+        markRead(thread)
+        signOff(thread)
+    }
+
+    /** Sam's office at the end of Little Bird's first act: everything on the board and in the tray. */
+    private fun office(name: String, then: () -> Unit = {}) {
+        compose.mainClock.autoAdvance = false
+        val state = GameState(Stage.Board, phone = null, boardSettled = true).apply {
+            progress.set(Flag.CASE_OPEN)
+            messages.playOut(SamsPhone.AmyHart)
+            messages.playOut(SamsPhone.DanaBrooks)
+            Symptom.entries.forEach { progress.set(Flag.sorted(it.id)) }
+            progress.set(Flag.SORTED)
+            messages.playOut(SamsPhone.AmyHart)
+            listOf(Flag.PIN_BAND, Flag.PIN_SYNC).forEach(progress::set)
+            messages.playOut(SamsPhone.AmyHart)
+            listOf(Flag.PIN_IMPOSTOR, Flag.PIN_PERMISSIONS, Flag.PIN_INSTALLED, Flag.PIN_PACKAGE).forEach(progress::set)
+            LittleBird.links.forEach { progress.set(Flag.linked(it.id)) }
+            progress.set(Flag.ACT1_DONE)
+            LittleBird.memos.forEach { progress.set(Flag.seen("memo.${it.id}")) }
+        }
+        compose.setContent { GameRoot(state) }
+        compose.mainClock.advanceTimeBy(1500)
+        then()
+        compose.onRoot().captureRoboImage("build/shots/$name.png")
+    }
+
+    @Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
+    @Test fun wide16x9Office() = office("9_aspect_16x9_office")
+
+    @Config(sdk = [36], qualifiers = "w360dp-h860dp-xhdpi")
+    @Test fun tallOffice() = office("9_aspect_tall_office")
+
+    /** The Lab keeps the whole screenshot in view on a short screen. */
+    @Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
+    @Test fun wide16x9Lab() = office("9_aspect_16x9_lab") {
+        compose.onNodeWithContentDescription("Evidence tray, 3 files").performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(800)
+        compose.onNode(hasContentDescription("Battery, last 24 hours, from Amy Hart", substring = true)).performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(800)
+    }
+
+    @Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
+    @Test fun wide16x9Notebook() = office("9_aspect_16x9_notebook") {
+        compose.onNode(hasContentDescription("Notebook", substring = true) and hasClickAction()).performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(900)
+    }
+
     /** On a short screen the settings scroll, down to the version line. */
     @Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
     @Test fun wide16x9Settings() {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Mira, boardSettled = true)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Mira, boardSettled = true, case = CaseId.Prototype)) }
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithContentDescription("Settings").performClick()
         compose.mainClock.advanceTimeBy(900)

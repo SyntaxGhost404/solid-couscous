@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import com.wickmoth.lakekeeps.game.GameState
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.case.CaseId
+import com.wickmoth.lakekeeps.game.case.case
 import com.wickmoth.lakekeeps.game.messages.Notice
 import com.wickmoth.lakekeeps.game.messages.Threads
 import com.wickmoth.lakekeeps.game.messages.formatClock
@@ -73,15 +75,32 @@ fun PhoneScreen(owner: Owner, state: GameState, content: () -> Float, onPutDown:
     }
     SideEffect { os.appIcons = appIcons }
 
-    // A contact with a live script reaches out once the phone is awake.
-    LaunchedEffect(owner) {
-        snapshotFlow { content() >= 1f }.first { it }
-        delay(FIRST_MESSAGE_DELAY_MS)
-        Threads.of(owner).filter { it.live != null && messages[it].delivered == 0 }.forEach { thread ->
-            val first = messages.nextLine(thread) ?: return@forEach
-            if (first.first) return@forEach
-            messages.deliver(thread)
-            if (os.thread != thread) os.postHeadsUp(Notice(thread, messages.lines(thread).last(), messages.unread(thread)))
+    if (owner.case == CaseId.Prototype) {
+        // A contact with a live script reaches out once the phone is awake.
+        LaunchedEffect(owner) {
+            snapshotFlow { content() >= 1f }.first { it }
+            delay(FIRST_MESSAGE_DELAY_MS)
+            Threads.of(owner).filter { it.live != null && messages[it].delivered == 0 }.forEach { thread ->
+                val first = messages.nextLine(thread) ?: return@forEach
+                if (first.mine) return@forEach
+                messages.deliver(thread)
+                if (os.thread != thread) os.postHeadsUp(Notice(thread, messages.lines(thread).last(), messages.unread(thread)))
+            }
+        }
+    } else {
+        // The case delivers its own messages; in hand, the phone shows a banner for each one that
+        // arrives outside the open conversation.
+        LaunchedEffect(owner) {
+            val threads = Threads.of(owner)
+            var seen = threads.map { messages[it].delivered }
+            snapshotFlow { threads.map { messages[it].delivered } }.collect { now ->
+                threads.forEachIndexed { i, thread ->
+                    if (now[i] <= seen[i] || os.thread == thread) return@forEachIndexed
+                    val last = messages.lines(thread).last()
+                    if (!last.mine) os.postHeadsUp(Notice(thread, last, messages.unread(thread)))
+                }
+                seen = now
+            }
         }
     }
 
@@ -119,7 +138,7 @@ fun PhoneScreen(owner: Owner, state: GameState, content: () -> Float, onPutDown:
         DesignFrame(fit) {
             StatusBar(
                 owner = stringResource(spec.owner),
-                clock = formatClock(messages.clock, withHalf = false),
+                clock = formatClock(messages.clock(owner.case), withHalf = false),
                 notices = messages.notices(owner).size,
                 content = content,
                 onHome = { 1f - os.appIn.value },
@@ -132,7 +151,7 @@ fun PhoneScreen(owner: Owner, state: GameState, content: () -> Float, onPutDown:
         }
         // Above the status bar, as on a real phone, so the banner's top edge still takes taps.
         HeadsUp(os, fit)
-        Shade(os, fit, messages.clock) { panelHeight = it }
+        Shade(os, fit, messages.clock(owner.case)) { panelHeight = it }
     }
     // Registered after the board's handler, so back closes the shade before it puts the phone down.
     BackHandler(enabled = os.shadeOpen) { os.closeShade() }

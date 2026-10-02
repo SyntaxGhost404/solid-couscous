@@ -8,7 +8,7 @@ import com.wickmoth.lakekeeps.game.Owner
 /**
  * An email. [body] is plain text with paragraphs separated by blank lines. It may carry a
  * [picture] (shown as a placeholder image with that caption) and an [attachment] (a file name).
- * It arrived [daysAgo] days before the game's "now", at [minutes] past midnight. [unread] is how
+ * It arrived [daysAgo] days before its case's "today", at [minutes] past midnight. [unread] is how
  * the phone's owner left it.
  */
 @Immutable

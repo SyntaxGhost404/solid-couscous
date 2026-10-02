@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.sp
 import com.wickmoth.lakekeeps.R
 import com.wickmoth.lakekeeps.audio.LocalAudio
 import com.wickmoth.lakekeeps.audio.Sfx
+import com.wickmoth.lakekeeps.game.case.CaseId
+import com.wickmoth.lakekeeps.game.case.case
 import com.wickmoth.lakekeeps.screens.phone.AppHeader
 import com.wickmoth.lakekeeps.screens.phone.Glyph
 import com.wickmoth.lakekeeps.screens.phone.GlyphIcon
@@ -144,7 +146,7 @@ internal fun SettingsApp(os: PhoneOs, fit: FrameFit) {
                 }
             }
             if (asking) {
-                ResetSheet(sheet, onCancel = ::dismiss) {
+                ResetSheet(sheet, resetBody(os.owner.case), onCancel = ::dismiss) {
                     os.feedback(Haptic.Confirm)
                     os.state.reset()
                 }
@@ -404,9 +406,25 @@ private fun TextPage(os: PhoneOs, @StringRes title: Int, onBack: () -> Unit, con
     }
 }
 
+/** How the case on this phone is played, a step at a time. */
+private fun helpLines(case: CaseId): List<Int> = when (case) {
+    CaseId.LittleBird -> listOf(
+        R.string.help_office, R.string.help_phone, R.string.help_live,
+        R.string.help_sort, R.string.help_pin, R.string.help_thread, R.string.help_shade,
+    )
+    CaseId.Prototype -> listOf(R.string.help_board, R.string.help_phones, R.string.help_shade, R.string.help_live, R.string.help_calls)
+}
+
+/** What starting over forgets, for the case on this phone. */
+@StringRes
+private fun resetBody(case: CaseId): Int = when (case) {
+    CaseId.LittleBird -> R.string.reset_body_case
+    CaseId.Prototype -> R.string.reset_body
+}
+
 @Composable
 private fun Help(os: PhoneOs, onBack: () -> Unit) = TextPage(os, R.string.settings_help, onBack) {
-    listOf(R.string.help_board, R.string.help_phones, R.string.help_shade, R.string.help_live, R.string.help_calls)
+    helpLines(os.owner.case)
         .forEachIndexed { i, line ->
             Row(Modifier.padding(top = if (i == 0) 6.dp else 0.dp, bottom = 18.dp)) {
                 Box(
@@ -441,7 +459,7 @@ private fun Credits(os: PhoneOs, onBack: () -> Unit) = TextPage(os, R.string.set
 
 /** "Start over?", slid up over the settings; tap outside, Cancel or back to keep playing. */
 @Composable
-private fun ResetSheet(progress: Animatable<Float, AnimationVector1D>, onCancel: () -> Unit, onReset: () -> Unit) {
+private fun ResetSheet(progress: Animatable<Float, AnimationVector1D>, @StringRes body: Int, onCancel: () -> Unit, onReset: () -> Unit) {
     Box(Modifier.fillMaxSize()) {
         Box(
             Modifier
@@ -472,7 +490,7 @@ private fun ResetSheet(progress: Animatable<Float, AnimationVector1D>, onCancel:
             ) {
                 PhoneText(stringResource(R.string.reset_title), phoneText(21.sp, FontWeight.Bold))
                 Spacer(Modifier.height(10.dp))
-                PhoneText(stringResource(R.string.reset_body), phoneText(15.sp, color = PhoneColors.TextMuted).copy(lineHeight = 22.sp))
+                PhoneText(stringResource(body), phoneText(15.sp, color = PhoneColors.TextMuted).copy(lineHeight = 22.sp))
                 Spacer(Modifier.height(24.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SheetButton(R.string.cancel, PhoneColors.Surface, PhoneColors.Text, Modifier.weight(1f), onCancel)

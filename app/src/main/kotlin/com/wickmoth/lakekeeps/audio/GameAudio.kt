@@ -10,7 +10,7 @@ enum class Sfx {
     Ignite, Tap, Paper, Pin, Pickup, Putdown, Denied, Scribble,
     MessageIn, MessageOut, Notify, AppOpen, AppClose, Offline,
     Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9, KeyStar, Key0, KeyHash, Ringback, CallEnd,
-    Toggle, Reveal,
+    Toggle, Reveal, Buzz, Thread,
     ;
 
     companion object {

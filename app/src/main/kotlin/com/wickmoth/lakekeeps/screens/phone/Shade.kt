@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.sp
 import com.wickmoth.lakekeeps.R
 import com.wickmoth.lakekeeps.audio.LocalAudio
 import com.wickmoth.lakekeeps.audio.Sfx
+import com.wickmoth.lakekeeps.game.StoryCalendar
+import com.wickmoth.lakekeeps.game.case.case
 import com.wickmoth.lakekeeps.game.messages.Day
 import com.wickmoth.lakekeeps.game.messages.Notice
 import com.wickmoth.lakekeeps.game.messages.formatClock
@@ -127,7 +129,7 @@ internal fun Shade(os: PhoneOs, fit: FrameFit, clock: Int, onPanelHeight: (Float
                                     Modifier.padding(start = 5.dp, bottom = 7.dp),
                                 )
                             }
-                            PhoneText(stringResource(R.string.shade_date), phoneText(13.sp, color = PhoneColors.TextMuted))
+                            PhoneText(os.owner.case.calendar.fullDate(0), phoneText(13.sp, color = PhoneColors.TextMuted))
                         }
                         val muted = audio.muted
                         ShadeButton(
@@ -157,6 +159,7 @@ internal fun Shade(os: PhoneOs, fit: FrameFit, clock: Int, onPanelHeight: (Float
                             key(notice.thread.id) {
                                 NoticeCard(
                                     notice = notice,
+                                    calendar = os.owner.case.calendar,
                                     onOpen = { rect -> os.openNotice(notice, rect) },
                                     onDismiss = { os.messages.dismiss(notice.thread) },
                                 )
@@ -201,7 +204,7 @@ private fun ShadeButton(glyph: Glyph, label: String, lit: Boolean, onTap: () -> 
  * when it can't open right now, and the card shakes.
  */
 @Composable
-private fun NoticeCard(notice: Notice, onOpen: (Rect) -> Boolean, onDismiss: () -> Unit) {
+private fun NoticeCard(notice: Notice, calendar: StoryCalendar, onOpen: (Rect) -> Boolean, onDismiss: () -> Unit) {
     val dx = remember { Animatable(0f) }
     val refused = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -210,7 +213,7 @@ private fun NoticeCard(notice: Notice, onOpen: (Rect) -> Boolean, onDismiss: () 
     fun open() {
         if (!onOpen(bounds)) scope.launch { refused.shake() }
     }
-    val label = "${notice.thread.contact.name}: ${notice.line.text}"
+    val label = "${notice.thread.contact.name}: ${preview(notice.line)}"
     Box(
         Modifier
             .fillMaxWidth()
@@ -242,13 +245,13 @@ private fun NoticeCard(notice: Notice, onOpen: (Rect) -> Boolean, onDismiss: () 
             )
             .pointerInput(Unit) { detectTapGestures { open() } },
     ) {
-        NoticeRow(notice, Modifier.background(PhoneColors.Surface, RoundedCornerShape(16.dp)).border(1.dp, PhoneColors.Outline, RoundedCornerShape(16.dp)))
+        NoticeRow(notice, calendar, Modifier.background(PhoneColors.Surface, RoundedCornerShape(16.dp)).border(1.dp, PhoneColors.Outline, RoundedCornerShape(16.dp)))
     }
 }
 
 /** Avatar, app and time, sender and the latest line: shared by the shade and the banner. */
 @Composable
-internal fun NoticeRow(notice: Notice, modifier: Modifier = Modifier) {
+internal fun NoticeRow(notice: Notice, calendar: StoryCalendar, modifier: Modifier = Modifier) {
     Row(
         modifier
             .fillMaxWidth()
@@ -261,11 +264,11 @@ internal fun NoticeRow(notice: Notice, modifier: Modifier = Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Image(painterResource(R.drawable.icon_messages), null, Modifier.size(12.dp))
                 Spacer(Modifier.width(5.dp))
-                val time = if (notice.line.day == Day.Today) formatClock(notice.line.minutes) else stringResource(notice.line.day.short)
+                val time = if (notice.line.day == Day.Today) formatClock(notice.line.minutes) else dayShort(notice.line.day, calendar)
                 PhoneText("${stringResource(R.string.messages_title)} · $time", phoneText(11.sp, color = PhoneColors.TextFaint))
             }
             PhoneText(notice.thread.contact.name, phoneText(14.5.sp, FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            PhoneText(notice.line.text, phoneText(13.sp, color = PhoneColors.TextMuted), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            PhoneText(preview(notice.line), phoneText(13.sp, color = PhoneColors.TextMuted), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (notice.unread > 1) {
             Spacer(Modifier.width(8.dp))
@@ -289,7 +292,7 @@ internal fun HeadsUp(os: PhoneOs, fit: FrameFit) {
     val refused = remember(notice) { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val unreadLabel = pluralStringResource(R.plurals.unread, notice.unread, notice.unread)
-    val text = notice.line.text.let { if (it.last() in ".?!…") it else "$it." }
+    val text = preview(notice.line).let { if (it.last() in ".?!…") it else "$it." }
     val label = "${notice.thread.contact.name}: $text $unreadLabel"
     val from = remember(fit) {
         val at = fit.toWindow(12f, 76f)
@@ -338,7 +341,7 @@ internal fun HeadsUp(os: PhoneOs, fit: FrameFit) {
                     }
                 },
         ) {
-            NoticeRow(notice)
+            NoticeRow(notice, os.owner.case.calendar)
         }
     }
 }

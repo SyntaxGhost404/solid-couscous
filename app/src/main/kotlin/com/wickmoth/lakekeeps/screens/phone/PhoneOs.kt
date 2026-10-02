@@ -18,6 +18,7 @@ import com.wickmoth.lakekeeps.audio.LocalAudio
 import com.wickmoth.lakekeeps.audio.Sfx
 import com.wickmoth.lakekeeps.game.GameState
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.case.case
 import com.wickmoth.lakekeeps.game.mail.MailBox
 import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Notice
@@ -69,7 +70,7 @@ class PhoneOs internal constructor(
     var appIcons: Map<PhoneApp, Rect> = emptyMap()
 
     /** The Phone app's pages, number and call. */
-    val dialer = Dialer(owner, calls, { messages.clock }, scope, audio, feedback)
+    val dialer = Dialer(owner, calls, { messages.clock(owner.case) }, scope, audio, feedback)
 
     /** The open conversation; null shows the inbox. */
     var thread by mutableStateOf<Thread?>(null)

@@ -36,6 +36,9 @@ import com.wickmoth.lakekeeps.R
 import com.wickmoth.lakekeeps.audio.LocalAudio
 import com.wickmoth.lakekeeps.audio.Sfx
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.case.CaseId
+import com.wickmoth.lakekeeps.game.case.case
+import com.wickmoth.lakekeeps.screens.phone.phoneSpec
 import com.wickmoth.lakekeeps.ui.Ease
 import com.wickmoth.lakekeeps.ui.Haptic
 import com.wickmoth.lakekeeps.ui.haptic
@@ -57,12 +60,17 @@ internal object PhoneShape {
 @Immutable
 data class DeskPhone(val owner: Owner, val center: Offset, val rotation: Float, val casing: Color, val edge: Color)
 
+/** Every phone's place on its case's desk. Sam's lies where the prototype's main phone did. */
 internal val DeskPhones = listOf(
     DeskPhone(Owner.Mira, Offset(64f, 766f), rotation = 76f, casing = Color(0xFF2B3037), edge = Color(0xFF66707B)),
     DeskPhone(Owner.Theo, Offset(284f, 744f), rotation = 16f, casing = Color(0xFF2F7F7A), edge = Color(0xFF5BB3AA)),
+    DeskPhone(Owner.Sam, Offset(300f, 744f), rotation = 14f, casing = Color(0xFF26292E), edge = Color(0xFF9C8462)),
 )
 
 internal fun deskPhone(owner: Owner) = DeskPhones.first { it.owner == owner }
+
+/** The prototype's desk: Mira's phone (the secondary phone) and Theo's. */
+private val PrototypePhones = DeskPhones.filter { it.owner.case == CaseId.Prototype }
 
 /** The part of a prop that touches the desk and casts a shadow, in the prop's own dp. */
 @Immutable
@@ -111,14 +119,14 @@ internal fun BoxScope.Desk(
     onPickUp: (Owner) -> Unit,
 ) {
     Props.forEachIndexed { i, prop -> DeskProp(prop, i, intro) }
-    Steam(intro, idle)
-    DeskPhones.forEachIndexed { i, phone ->
+    Steam(intro, idle, SteamOverPrototypeMug)
+    PrototypePhones.forEachIndexed { i, phone ->
         PhonePiece(phone, Props.size + i, intro, hidden == phone.owner, landing, onPickUp)
     }
 }
 
 /** A soft contact shadow under [area], drawn as three widening translucent layers. */
-private fun DrawScope.softShadow(area: Rect, corner: Float, lift: Float, dp: Float, oval: Boolean = false) {
+internal fun DrawScope.softShadow(area: Rect, corner: Float, lift: Float, dp: Float, oval: Boolean = false) {
     val spread = (1.5f + 3f * lift) * dp
     val drop = Offset(1.2f * dp, (2.2f + 3f * lift) * dp)
     for (k in 3 downTo 1) {
@@ -134,7 +142,7 @@ private fun DrawScope.softShadow(area: Rect, corner: Float, lift: Float, dp: Flo
     }
 }
 
-private fun introLift(intro: Float, index: Int): Float = window(intro, 250f + index * 70f, 520f, Ease.OutCubic)
+internal fun introLift(intro: Float, index: Int): Float = window(intro, 250f + index * 70f, 520f, Ease.OutCubic)
 
 @Composable
 private fun DeskProp(prop: Prop, index: Int, intro: () -> Float) {
@@ -177,12 +185,17 @@ private fun DeskProp(prop: Prop, index: Int, intro: () -> Float) {
     )
 }
 
-/** Steam curling off the coffee: three soft wisps that rise, sway and thin out on staggered loops. */
+private val SteamOverPrototypeMug = Offset(152f, 684f)
+
+/**
+ * Steam curling off the coffee: three soft wisps that rise, sway and thin out on staggered loops.
+ * [at] is the top-left of the 56 x 58 dp space they rise in, just above the mug.
+ */
 @Composable
-private fun BoxScope.Steam(intro: () -> Float, idle: () -> Float) {
+internal fun BoxScope.Steam(intro: () -> Float, idle: () -> Float, at: Offset) {
     Canvas(
         Modifier
-            .offset(152.dp, 684.dp)
+            .offset(at.x.dp, at.y.dp)
             .size(56.dp, 58.dp),
     ) {
         val presence = window(intro(), 1100f, 900f, Ease.InOutSine)
@@ -218,8 +231,21 @@ private fun BoxScope.Steam(intro: () -> Float, idle: () -> Float) {
     }
 }
 
+/**
+ * A phone lying on the desk; tap to pick it up. [alert] (0..1) is a notification arriving: the
+ * screen lights and the phone shivers against the desk.
+ */
 @Composable
-private fun PhonePiece(phone: DeskPhone, index: Int, intro: () -> Float, lifted: Boolean, landing: Landing, onPickUp: (Owner) -> Unit) {
+internal fun PhonePiece(
+    phone: DeskPhone,
+    index: Int,
+    intro: () -> Float,
+    lifted: Boolean,
+    landing: Landing,
+    onPickUp: (Owner) -> Unit,
+    alert: () -> Float = { 0f },
+    glow: () -> Float = { 0f },
+) {
     val press = remember { Animatable(0f) }
     val settle = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -229,7 +255,7 @@ private fun PhonePiece(phone: DeskPhone, index: Int, intro: () -> Float, lifted:
             settle.animateTo(0f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMediumLow))
         }
     }
-    val label = stringResource(R.string.desk_phone, stringResource(if (phone.owner == Owner.Theo) R.string.phone_theo else R.string.phone_mira))
+    val label = stringResource(R.string.desk_phone, stringResource(phoneSpec(phone.owner).owner))
     val body = PhoneShape.body
     Canvas(
         Modifier
@@ -239,7 +265,9 @@ private fun PhonePiece(phone: DeskPhone, index: Int, intro: () -> Float, lifted:
                 val e = introLift(intro(), index)
                 alpha = if (lifted) 0f else e
                 translationY = ((1f - e) * 18f).dp.toPx()
-                rotationZ = phone.rotation
+                val a = alert()
+                rotationZ = phone.rotation + if (a > 0f) sin(a * 46f) * 2.4f * (1f - a) else 0f
+                translationX = (if (a > 0f) sin(a * 61f) * 1.2f * (1f - a) else 0f).dp.toPx()
                 val s = 1f + 0.06f * press.value + 0.05f * settle.value
                 scaleX = s
                 scaleY = s
@@ -253,12 +281,15 @@ private fun PhonePiece(phone: DeskPhone, index: Int, intro: () -> Float, lifted:
             ) { onPickUp(phone.owner) },
     ) {
         softShadow(Rect(Offset.Zero, size), PhoneShape.BODY_CORNER * density, press.value, density)
-        drawDeskPhone(phone, density, screenGlow = press.value * 0.25f)
+        drawDeskPhone(phone, density, screenGlow = press.value * 0.25f, notice = glow())
     }
 }
 
-/** A phone lying face up: casing, dark glass, punch-hole camera and a sliver of reflection. */
-internal fun DrawScope.drawDeskPhone(phone: DeskPhone, dp: Float, screenGlow: Float = 0f) {
+/**
+ * A phone lying face up: casing, dark glass, punch-hole camera and a sliver of reflection. [notice]
+ * (0..1) lights the lock screen with a notification on it.
+ */
+internal fun DrawScope.drawDeskPhone(phone: DeskPhone, dp: Float, screenGlow: Float = 0f, notice: Float = 0f) {
     val body = size
     drawRoundRect(phone.casing, size = body, cornerRadius = CornerRadius(PhoneShape.BODY_CORNER * dp))
     drawRoundRect(
@@ -273,6 +304,20 @@ internal fun DrawScope.drawDeskPhone(phone: DeskPhone, dp: Float, screenGlow: Fl
     drawRoundRect(Color(0xFF07090B), topLeft = Offset(inset, inset), size = screen, cornerRadius = CornerRadius(PhoneShape.SCREEN_CORNER * dp))
     if (screenGlow > 0f) {
         drawRoundRect(Color(0xFF7FA6C9), topLeft = Offset(inset, inset), size = screen, cornerRadius = CornerRadius(PhoneShape.SCREEN_CORNER * dp), alpha = screenGlow * 0.35f)
+    }
+    if (notice > 0f) {
+        drawRoundRect(
+            Brush.verticalGradient(listOf(Color(0xFF2B4A6E), Color(0xFF16263A)), startY = inset, endY = inset + screen.height),
+            topLeft = Offset(inset, inset),
+            size = screen,
+            cornerRadius = CornerRadius(PhoneShape.SCREEN_CORNER * dp),
+            alpha = notice,
+        )
+        // the time, and the banner of the message that just came in
+        drawRoundRect(Color.White, Offset(body.width / 2f - 6f * dp, inset + 10f * dp), Size(12f * dp, 3f * dp), CornerRadius(1.5f * dp), alpha = 0.85f * notice)
+        drawRoundRect(Color.White, Offset(inset + 3f * dp, inset + 20f * dp), Size(screen.width - 6f * dp, 9f * dp), CornerRadius(2.5f * dp), alpha = 0.32f * notice)
+        drawRoundRect(Color.White, Offset(inset + 5f * dp, inset + 22.5f * dp), Size(screen.width * 0.42f, 1.6f * dp), CornerRadius(0.8f * dp), alpha = 0.8f * notice)
+        drawRoundRect(Color.White, Offset(inset + 5f * dp, inset + 25.5f * dp), Size(screen.width * 0.62f, 1.4f * dp), CornerRadius(0.7f * dp), alpha = 0.55f * notice)
     }
     drawCircle(Color(0xFF1E2329), radius = 1.5f * dp, center = Offset(body.width / 2f, inset + 3.6f * dp))
     val glare = Path().apply {

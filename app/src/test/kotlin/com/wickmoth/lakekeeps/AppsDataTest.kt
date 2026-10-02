@@ -1,9 +1,9 @@
 package com.wickmoth.lakekeeps
 
 import com.wickmoth.lakekeeps.game.GameState
-import com.wickmoth.lakekeeps.game.GameTime
 import com.wickmoth.lakekeeps.game.Owner
 import com.wickmoth.lakekeeps.game.Stage
+import com.wickmoth.lakekeeps.game.case.CaseId
 import com.wickmoth.lakekeeps.game.gallery.Albums
 import com.wickmoth.lakekeeps.game.mail.Inboxes
 import com.wickmoth.lakekeeps.game.mail.MailBox
@@ -17,11 +17,15 @@ import org.junit.Test
 import java.time.DayOfWeek
 
 class AppsDataTest {
-    @Test fun theGameCalendarIsSaturdayFourthOfNovember() {
-        assertEquals(DayOfWeek.SATURDAY, GameTime.today.dayOfWeek)
-        assertEquals("4 November", GameTime.longDate(0))
-        assertEquals("2 Nov", GameTime.shortDate(2))
-        assertEquals("28 October", GameTime.longDate(7))
+    @Test fun theCasesCalendars() {
+        val prototype = CaseId.Prototype.calendar
+        assertEquals(DayOfWeek.SATURDAY, prototype.today.dayOfWeek)
+        assertEquals("4 November", prototype.longDate(0))
+        assertEquals("2 Nov", prototype.shortDate(2))
+        assertEquals("28 October", prototype.longDate(7))
+        assertEquals("Saturday, 4 November", prototype.fullDate(0))
+        // Little Bird opens on a Monday in the last week of the monsoon
+        assertEquals("Monday, 8 September", CaseId.LittleBird.calendar.fullDate(0))
     }
 
     @Test fun inboxesAreNewestFirstWithUniqueIds() {
@@ -61,7 +65,7 @@ class AppsDataTest {
     }
 
     @Test fun resetStartsTheGameOver() {
-        val state = GameState(Stage.Board, phone = Owner.Theo, boardSettled = true)
+        val state = GameState(Stage.Board, phone = Owner.Theo, boardSettled = true, case = CaseId.Prototype)
         state.messages.deliver(Threads.PrivateNumber)
         state.calls.place(Owner.Theo, "5550142", 975)
         state.mail.open(Inboxes.of(Owner.Theo).first())

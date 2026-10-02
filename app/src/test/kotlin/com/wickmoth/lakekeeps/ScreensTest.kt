@@ -12,6 +12,7 @@ import com.wickmoth.lakekeeps.game.GameState
 import com.wickmoth.lakekeeps.game.GameSurface
 import com.wickmoth.lakekeeps.game.Owner
 import com.wickmoth.lakekeeps.game.Stage
+import com.wickmoth.lakekeeps.game.case.CaseId
 import com.wickmoth.lakekeeps.screens.advisory.HeadphonesAdvisory
 import com.wickmoth.lakekeeps.screens.studio.StudioSplash
 import com.wickmoth.lakekeeps.screens.title.TitleScreen
@@ -69,7 +70,7 @@ class ScreensTest {
 
     @Test fun boardIntro() {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = null, boardSettled = false)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = null, boardSettled = false, case = CaseId.Prototype)) }
         at(500, "4_board_0500")
         at(1300, "4_board_1300")
         at(2100, "4_board_2100")
@@ -79,7 +80,7 @@ class ScreensTest {
 
     @Test fun theoPhone() {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = null, boardSettled = true)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = null, boardSettled = true, case = CaseId.Prototype)) }
         at(100, "5_theo_0000_desk")
         compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
         at(250, "5_theo_0150_lift")
@@ -90,7 +91,7 @@ class ScreensTest {
 
     @Test fun miraPhone() {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Mira, boardSettled = true)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Mira, boardSettled = true, case = CaseId.Prototype)) }
         at(300, "6_mira_open")
         compose.onNodeWithContentDescription("Back to the case board").performClick()
         at(500, "6_mira_close_0200")
@@ -100,7 +101,7 @@ class ScreensTest {
 
     @Test fun polaroidSwing() {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = null, boardSettled = true)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = null, boardSettled = true, case = CaseId.Prototype)) }
         at(100, "7_swing_0000")
         compose.onNodeWithContentDescription("Photo of Owen").performClick()
         at(180, "7_swing_0080")
@@ -111,7 +112,7 @@ class ScreensTest {
     /** Settings, once a locked app on Theo's phone, opens out of its icon like the others. */
     @Test fun settingsOpens() {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Theo, boardSettled = true)) }
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Theo, boardSettled = true, case = CaseId.Prototype)) }
         at(300, "8_settings_0000")
         compose.onNodeWithContentDescription("Settings").performClick()
         at(360, "8_settings_0060")

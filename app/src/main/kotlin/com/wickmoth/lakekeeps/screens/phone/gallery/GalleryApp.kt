@@ -58,7 +58,8 @@ import androidx.compose.ui.unit.sp
 import com.wickmoth.lakekeeps.R
 import com.wickmoth.lakekeeps.audio.LocalAudio
 import com.wickmoth.lakekeeps.audio.Sfx
-import com.wickmoth.lakekeeps.game.GameTime
+import com.wickmoth.lakekeeps.game.StoryCalendar
+import com.wickmoth.lakekeeps.game.case.case
 import com.wickmoth.lakekeeps.game.gallery.Albums
 import com.wickmoth.lakekeeps.game.gallery.Photo
 import com.wickmoth.lakekeeps.screens.phone.AppHeader
@@ -66,10 +67,12 @@ import com.wickmoth.lakekeeps.screens.phone.Glyph
 import com.wickmoth.lakekeeps.screens.phone.GlyphIcon
 import com.wickmoth.lakekeeps.screens.phone.HeaderButton
 import com.wickmoth.lakekeeps.screens.phone.HeaderHeight
+import com.wickmoth.lakekeeps.screens.phone.PhoneApp
 import com.wickmoth.lakekeeps.screens.phone.PhoneColors
 import com.wickmoth.lakekeeps.screens.phone.PhoneOs
 import com.wickmoth.lakekeeps.screens.phone.PhoneText
 import com.wickmoth.lakekeeps.screens.phone.PlaceholderImage
+import com.wickmoth.lakekeeps.screens.phone.phoneSpec
 import com.wickmoth.lakekeeps.screens.phone.phoneText
 import com.wickmoth.lakekeeps.ui.DesignScale
 import com.wickmoth.lakekeeps.ui.Ease
@@ -170,7 +173,7 @@ internal fun GalleryApp(os: PhoneOs, fit: FrameFit) {
                 )
             }
             viewing?.let { v ->
-                Viewer(v, zoom, thumbnails, onPage = { flying = it.id }, onClose = ::closeViewer)
+                Viewer(v, os.owner.case.calendar, zoom, thumbnails, onPage = { flying = it.id }, onClose = ::closeViewer)
             }
         }
     }
@@ -220,7 +223,7 @@ private fun AllPhotos(
                     .align(Alignment.CenterStart)
                     .padding(start = 6.dp),
             ) { onHidden() }
-            PhoneText(stringResource(R.string.app_gallery), phoneText(21.sp, FontWeight.Bold), Modifier.align(Alignment.Center))
+            PhoneText(stringResource(galleryTitle(os)), phoneText(21.sp, FontWeight.Bold), Modifier.align(Alignment.Center))
             HeaderButton(
                 Glyph.Close,
                 stringResource(R.string.close),
@@ -236,7 +239,7 @@ private fun AllPhotos(
             days.forEach { (daysAgo, shots) ->
                 item(key = "day-$daysAgo") {
                     PhoneText(
-                        GameTime.longDate(daysAgo),
+                        os.owner.case.calendar.longDate(daysAgo),
                         phoneText(16.sp, FontWeight.SemiBold),
                         Modifier.padding(start = 2.dp, top = 20.dp, bottom = 10.dp),
                     )
@@ -247,6 +250,7 @@ private fun AllPhotos(
                             three.forEach { (index, photo) ->
                                 Thumbnail(
                                     photo,
+                                    os.owner.case.calendar,
                                     thumbnails,
                                     hidden = { flying() == photo.id },
                                     appear = { window(os.appIn.value, 0.35f + index.coerceAtMost(8) * 0.03f, 0.4f, Ease.OutCubic) },
@@ -288,7 +292,7 @@ private fun HiddenPhotos(
                     .align(Alignment.CenterStart)
                     .padding(start = 6.dp),
             ) { onBack() }
-            PhoneText(stringResource(R.string.app_gallery), phoneText(21.sp, FontWeight.Bold), Modifier.align(Alignment.Center))
+            PhoneText(stringResource(galleryTitle(os)), phoneText(21.sp, FontWeight.Bold), Modifier.align(Alignment.Center))
             HeaderButton(
                 Glyph.Close,
                 stringResource(R.string.close),
@@ -328,6 +332,7 @@ private fun HiddenPhotos(
                 Column(Modifier.padding(bottom = 22.dp)) {
                     Thumbnail(
                         photo,
+                        os.owner.case.calendar,
                         thumbnails,
                         hidden = { flying() == photo.id },
                         appear = { 1f },
@@ -338,7 +343,7 @@ private fun HiddenPhotos(
                     ) { onView(photos, i) }
                     Spacer(Modifier.height(8.dp))
                     PhoneText(photo.caption, phoneText(14.sp, FontWeight.SemiBold))
-                    PhoneText(GameTime.longDate(photo.daysAgo), phoneText(12.sp, color = PhoneColors.TextFaint))
+                    PhoneText(os.owner.case.calendar.longDate(photo.daysAgo), phoneText(12.sp, color = PhoneColors.TextFaint))
                 }
             }
         }
@@ -349,6 +354,7 @@ private fun HiddenPhotos(
 @Composable
 private fun Thumbnail(
     photo: Photo,
+    calendar: StoryCalendar,
     thumbnails: Thumbnails,
     hidden: () -> Boolean,
     appear: () -> Float,
@@ -371,7 +377,7 @@ private fun Thumbnail(
             }
             .clip(RoundedCornerShape(corner.dp))
             .tactile(
-                stringResource(R.string.gallery_photo, photo.caption, GameTime.longDate(photo.daysAgo)),
+                stringResource(R.string.gallery_photo, photo.caption, calendar.longDate(photo.daysAgo)),
                 onPress = { down -> scope.launch { press.animateTo(if (down) 1f else 0f, spring(stiffness = 800f)) } },
                 onTap = onTap,
             ),
@@ -387,6 +393,7 @@ private fun Thumbnail(
 @Composable
 private fun Viewer(
     viewing: Viewing,
+    calendar: StoryCalendar,
     zoom: Animatable<Float, AnimationVector1D>,
     thumbnails: Thumbnails,
     onPage: (Photo) -> Unit,
@@ -454,7 +461,7 @@ private fun Viewer(
                                 scaleY = s
                             }
                         }
-                        .semantics { contentDescription = "${photo.caption}, ${GameTime.longDate(photo.daysAgo)}" },
+                        .semantics { contentDescription = "${photo.caption}, ${calendar.longDate(photo.daysAgo)}" },
                     glyphSize = 56.dp,
                 )
             }
@@ -481,7 +488,7 @@ private fun Viewer(
                         .align(Alignment.CenterStart)
                         .padding(start = 6.dp),
                 ) { onClose() }
-                PhoneText(GameTime.longDate(current.daysAgo), phoneText(18.sp, FontWeight.SemiBold), Modifier.align(Alignment.Center))
+                PhoneText(calendar.longDate(current.daysAgo), phoneText(18.sp, FontWeight.SemiBold), Modifier.align(Alignment.Center))
             }
         }
         PhoneText(
@@ -497,3 +504,6 @@ private fun Viewer(
 
 /** Behind a photo shown full size. */
 private val Darkroom = Color(0xFF04070A)
+
+/** The app's name on this phone's home screen: Gallery, or Photos. */
+private fun galleryTitle(os: PhoneOs): Int = phoneSpec(os.owner).apps.first { it.opens == PhoneApp.Gallery }.label

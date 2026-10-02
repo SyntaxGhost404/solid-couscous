@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +36,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
@@ -47,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -67,6 +70,9 @@ import androidx.compose.ui.unit.sp
 import com.wickmoth.lakekeeps.R
 import com.wickmoth.lakekeeps.audio.LocalAudio
 import com.wickmoth.lakekeeps.audio.Sfx
+import com.wickmoth.lakekeeps.game.StoryCalendar
+import com.wickmoth.lakekeeps.game.case.case
+import com.wickmoth.lakekeeps.game.littlebird.Evidence
 import com.wickmoth.lakekeeps.game.messages.Beat
 import com.wickmoth.lakekeeps.game.messages.Day
 import com.wickmoth.lakekeeps.game.messages.Line
@@ -78,6 +84,7 @@ import com.wickmoth.lakekeeps.screens.phone.HeaderButton
 import com.wickmoth.lakekeeps.screens.phone.PhoneColors
 import com.wickmoth.lakekeeps.screens.phone.PhoneOs
 import com.wickmoth.lakekeeps.screens.phone.PhoneText
+import com.wickmoth.lakekeeps.screens.phone.dayChip
 import com.wickmoth.lakekeeps.screens.phone.phoneText
 import com.wickmoth.lakekeeps.ui.Ease
 import com.wickmoth.lakekeeps.ui.Haptic
@@ -95,8 +102,9 @@ import kotlin.math.sin
 
 private val ReplyPanelHeight = 196.dp
 
-/** How long a contact "types" before a line arrives. */
-private fun typingMs(text: String): Long = (700L + text.length * 28L).coerceAtMost(2600L)
+/** How long a contact "types" before a line arrives; a picture takes a moment longer to send. */
+private fun typingMs(text: String, attachment: Boolean = false): Long =
+    (700L + text.length * 28L).coerceAtMost(2600L) + if (attachment) 900L else 0L
 
 /** How long a contact stays online after their last line before signing off. */
 private const val SIGN_OFF_MS = 1200L
@@ -111,18 +119,28 @@ internal fun Chat(os: PhoneOs, thread: Thread, modifier: Modifier) {
     val live = messages.isLive(thread)
     val question = messages.question(thread)
     var typing by remember { mutableStateOf(false) }
-    var answering by remember { mutableStateOf<Int?>(null) }
+    // the last question answered, and with which reply; kept while its replies fade away
+    var answered by remember { mutableStateOf<Pair<Beat.Ask, Int>?>(null) }
+    var viewing by remember { mutableStateOf<String?>(null) }
+    val viewer = remember { Animatable(0f) }
     val openedWith = remember { lines.size }
     val nudge = remember { Animatable(0f) }
 
     LaunchedEffect(lines.size) { messages.markRead(thread) }
 
-    // Plays the script: the contact types and replies; the player's picked answers go out.
+    // The game knows which conversation is on screen, so the case leaves its lines to the chat.
+    DisposableEffect(thread.id) {
+        os.state.openThread = thread.id
+        onDispose { if (os.state.openThread == thread.id) os.state.openThread = null }
+    }
+
+    // Plays the script: the contact types and replies; the player's picked answers go out. When the
+    // script waits for the case, it waits here too, and picks up if the case moves on meanwhile.
     LaunchedEffect(thread.id) {
         while (isActive) {
             val next = messages.nextLine(thread)
             when {
-                next != null && next.first -> {
+                next != null && next.mine -> {
                     messages.deliver(thread)
                     audio.play(Sfx.MessageOut)
                     delay(650)
@@ -130,7 +148,7 @@ internal fun Chat(os: PhoneOs, thread: Thread, modifier: Modifier) {
                 next != null -> {
                     delay(450)
                     typing = true
-                    delay(typingMs(next.second))
+                    delay(typingMs(next.text, next.attachment != null))
                     typing = false
                     messages.deliver(thread)
                     audio.play(Sfx.MessageIn)
@@ -147,20 +165,37 @@ internal fun Chat(os: PhoneOs, thread: Thread, modifier: Modifier) {
                         messages.signOff(thread)
                         audio.play(Sfx.Offline)
                     }
-                    break
+                    snapshotFlow { messages.nextLine(thread) != null || messages.question(thread) != null }.first { it }
                 }
             }
         }
     }
 
-    fun pick(reply: Int) {
-        if (answering != null) return
-        answering = reply
+    fun view(attachment: String) {
+        os.feedback(Haptic.Tick)
+        audio.play(Sfx.AppOpen, 0.35f)
+        viewing = attachment
+        scope.launch { viewer.animateTo(1f, tween(320, easing = Ease.Emphasized)) }
+    }
+
+    fun closeViewer() {
+        if (viewer.targetValue == 0f) return
+        audio.play(Sfx.AppClose, 0.35f)
+        scope.launch {
+            viewer.animateTo(0f, tween(240))
+            viewing = null
+        }
+    }
+
+    // A question takes one answer. A second tap, even one landing as its replies fade away, would
+    // otherwise answer whichever question comes next before it's asked.
+    fun pick(ask: Beat.Ask, reply: Int) {
+        if (answered?.first === ask || messages.question(thread) !== ask) return
+        answered = ask to reply
         os.feedback(Haptic.Tick)
         scope.launch {
             delay(230)
             messages.choose(thread, reply)
-            answering = null
         }
     }
 
@@ -182,7 +217,7 @@ internal fun Chat(os: PhoneOs, thread: Thread, modifier: Modifier) {
                 },
             )
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                MessageList(lines, typing, openedWith)
+                MessageList(lines, typing, openedWith, os.owner.case.calendar, ::view)
             }
             Box(
                 Modifier
@@ -205,7 +240,7 @@ internal fun Chat(os: PhoneOs, thread: Thread, modifier: Modifier) {
                     label = "replies",
                 ) { ask ->
                     if (ask != null) {
-                        Replies(ask, answering, ::pick)
+                        Replies(ask, answered?.takeIf { it.first === ask }?.second) { pick(ask, it) }
                     } else {
                         Presence(thread.contact.name, typing, live)
                     }
@@ -213,6 +248,7 @@ internal fun Chat(os: PhoneOs, thread: Thread, modifier: Modifier) {
             }
         }
         ContactSheet(os, thread)
+        viewing?.let { PictureViewer(it, { viewer.value }, ::closeViewer) }
     }
 
     // While the contact is live there is no leaving: back just nudges the replies.
@@ -231,6 +267,8 @@ internal fun Chat(os: PhoneOs, thread: Thread, modifier: Modifier) {
         }
     }
     BackHandler(enabled = os.contactOpen && !os.shadeOpen) { os.closeContact() }
+    // registered last, so back closes a picture before anything else
+    BackHandler(enabled = viewing != null && !os.shadeOpen) { closeViewer() }
 }
 
 @Composable
@@ -298,7 +336,7 @@ private fun entries(lines: List<Line>, typing: Boolean): List<Entry> {
 private class Newest(var key: Any?)
 
 @Composable
-private fun MessageList(lines: List<Line>, typing: Boolean, openedWith: Int) {
+private fun MessageList(lines: List<Line>, typing: Boolean, openedWith: Int, calendar: StoryCalendar, onPicture: (String) -> Unit) {
     val rows = remember(lines, typing) { entries(lines, typing).asReversed() }
     val state = rememberLazyListState()
     val newest = rows.firstOrNull()
@@ -327,8 +365,8 @@ private fun MessageList(lines: List<Line>, typing: Boolean, openedWith: Int) {
                     .animateItem(fadeInSpec = null, fadeOutSpec = tween(150), placementSpec = spring(dampingRatio = 0.85f, stiffness = 420f)),
             ) {
                 when (row) {
-                    is Entry.Chip -> DayChip(row.day)
-                    is Entry.Message -> Bubble(row.line, row.tail, isNew = row.index >= openedWith, Modifier.padding(top = if (row.groupStart) 12.dp else 3.dp))
+                    is Entry.Chip -> DayChip(row.day, calendar)
+                    is Entry.Message -> Bubble(row.line, row.tail, isNew = row.index >= openedWith, Modifier.padding(top = if (row.groupStart) 12.dp else 3.dp), onPicture)
                     Entry.Typing -> TypingBubble(Modifier.padding(top = 12.dp))
                 }
             }
@@ -337,7 +375,7 @@ private fun MessageList(lines: List<Line>, typing: Boolean, openedWith: Int) {
 }
 
 @Composable
-private fun DayChip(day: Day) {
+private fun DayChip(day: Day, calendar: StoryCalendar) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -345,7 +383,7 @@ private fun DayChip(day: Day) {
         contentAlignment = Alignment.Center,
     ) {
         PhoneText(
-            stringResource(day.chip),
+            dayChip(day, calendar),
             phoneText(12.5.sp, FontWeight.SemiBold, PhoneColors.TextMuted),
             Modifier
                 .background(PhoneColors.Header, RoundedCornerShape(10.dp))
@@ -354,9 +392,12 @@ private fun DayChip(day: Day) {
     }
 }
 
-/** A message bubble. New ones grow from their tail; the player's rise up from the reply panel. */
+/**
+ * A message bubble. New ones grow from their tail; the player's rise up from the reply panel. A
+ * picture sits at the top of its bubble; tap it to see it whole.
+ */
 @Composable
-private fun Bubble(line: Line, tail: Boolean, isNew: Boolean, modifier: Modifier) {
+private fun Bubble(line: Line, tail: Boolean, isNew: Boolean, modifier: Modifier, onPicture: (String) -> Unit) {
     val appear = remember { Animatable(if (isNew) 0f else 1f) }
     LaunchedEffect(Unit) {
         if (isNew) appear.animateTo(1f, spring(dampingRatio = 0.72f, stiffness = 380f))
@@ -386,10 +427,21 @@ private fun Bubble(line: Line, tail: Boolean, isNew: Boolean, modifier: Modifier
                         bottomEnd = if (mine && tail) small else big,
                     ),
                 )
-                .padding(start = 14.dp, end = 14.dp, top = 9.dp, bottom = 8.dp),
+                .padding(start = 14.dp, end = 14.dp, top = if (line.attachment != null) 6.dp else 9.dp, bottom = 8.dp),
             horizontalAlignment = if (mine) Alignment.End else Alignment.Start,
         ) {
-            PhoneText(line.text, phoneText(15.5.sp, color = if (mine) Color.White else PhoneColors.Text))
+            line.attachment?.let { picture ->
+                val label = stringResource(R.string.picture_open, Evidence.byId(picture)?.title ?: picture)
+                AttachmentPicture(
+                    picture,
+                    Modifier
+                        .padding(top = 2.dp, bottom = if (line.text.isEmpty()) 2.dp else 8.dp)
+                        .size(196.dp, 252.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .tactile(label) { onPicture(picture) },
+                )
+            }
+            if (line.text.isNotEmpty()) PhoneText(line.text, phoneText(15.5.sp, color = if (mine) Color.White else PhoneColors.Text))
             Spacer(Modifier.height(3.dp))
             PhoneText(formatClock(line.minutes), phoneText(11.sp, color = if (mine) PhoneColors.OutgoingTime else PhoneColors.TextFaint))
         }
@@ -465,7 +517,7 @@ private fun ReplyButton(text: String, appear: () -> Float, chosen: Boolean, drop
         Modifier
             .widthIn(max = 300.dp)
             .fillMaxWidth()
-            .height(50.dp)
+            .heightIn(min = 50.dp)
             .graphicsLayer {
                 val a = appear()
                 alpha = a * (1f - gone)
@@ -483,7 +535,12 @@ private fun ReplyButton(text: String, appear: () -> Float, chosen: Boolean, drop
             ),
         contentAlignment = Alignment.Center,
     ) {
-        PhoneText(text, phoneText(15.sp, FontWeight.SemiBold).copy(textAlign = TextAlign.Center), maxLines = 2)
+        PhoneText(
+            text,
+            phoneText(15.sp, FontWeight.SemiBold).copy(textAlign = TextAlign.Center),
+            Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
+            maxLines = 3,
+        )
     }
 }
 

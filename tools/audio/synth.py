@@ -297,6 +297,34 @@ def reveal() -> np.ndarray:
     return normalise(fade(air * 0.25 + notes, 0.004, 0.15), 0.24)
 
 
+# ------------------------------------------------------------------ the office
+
+def buzz() -> np.ndarray:
+    """A phone lying face up on a desk, vibrating twice: a wobbling motor, and its case rattling on wood."""
+    out = np.zeros(int(0.9 * SR))
+    r = _rng(71)
+    for at in (0.0, 0.42):
+        seconds = 0.26
+        t = t_axis(seconds)
+        motor = np.sin(2 * np.pi * 172 * t + 0.6 * np.sin(2 * np.pi * 31 * t))
+        rattle = band(r.standard_normal(len(t)), 300, 1800) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 86 * t)))
+        shape = np.clip(t / 0.015, 0, 1) * np.clip((seconds - t) / 0.03, 0, 1)
+        mix_at(out, (motor * 0.6 + rattle * 0.35) * shape, at)
+    return normalise(fade(band(out, 90, 4000), 0.002, 0.03), 0.42)
+
+
+def thread() -> np.ndarray:
+    """Red thread pulled taut between two pins: a short rasp through the fingers, then a low twang."""
+    seconds = 0.5
+    t = t_axis(seconds)
+    r = _rng(83)
+    rasp = band(r.standard_normal(len(t)), 900, 5000) * np.clip(t / 0.12, 0, 1) * np.exp(-np.clip(t - 0.12, 0, None) * 30)
+    tt = t_axis(seconds - 0.12)
+    twang = np.zeros(len(t))
+    mix_at(twang, sum(a * np.sin(2 * np.pi * f * tt) * np.exp(-tt * d) for f, a, d in ((196, 1.0, 9), (392, 0.4, 14), (587, 0.2, 18))), 0.12)
+    return normalise(fade(rasp * 0.5 + twang * 0.6, 0.002, 0.05), 0.3)
+
+
 # ------------------------------------------------------------------ ambience
 
 def ambience(seconds: float = 48.0) -> np.ndarray:
@@ -379,6 +407,7 @@ SOUNDS = {
     **{f"sfx_key_{key}": (lambda low=low, high=high: key_tone(low, high)) for key, (low, high) in KEYS.items()},
     "sfx_ringback": ringback, "sfx_call_end": call_end,
     "sfx_toggle": toggle, "sfx_reveal": reveal,
+    "sfx_buzz": buzz, "sfx_thread": thread,
 }
 
 

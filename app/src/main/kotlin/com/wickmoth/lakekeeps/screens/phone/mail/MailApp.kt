@@ -50,8 +50,9 @@ import androidx.compose.ui.unit.sp
 import com.wickmoth.lakekeeps.R
 import com.wickmoth.lakekeeps.audio.LocalAudio
 import com.wickmoth.lakekeeps.audio.Sfx
-import com.wickmoth.lakekeeps.game.GameTime
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.StoryCalendar
+import com.wickmoth.lakekeeps.game.case.case
 import com.wickmoth.lakekeeps.game.mail.Email
 import com.wickmoth.lakekeeps.game.mail.Inboxes
 import com.wickmoth.lakekeeps.game.messages.Face
@@ -181,6 +182,7 @@ private fun Inbox(os: PhoneOs, modifier: Modifier, onRead: (Email) -> Unit) {
                     mail = mail,
                     face = senderFace(os.owner, mail),
                     unread = os.mail.isUnread(mail),
+                    calendar = os.owner.case.calendar,
                     appear = { window(os.appIn.value, 0.35f + i.coerceAtMost(5) * 0.05f, 0.4f, Ease.OutCubic) },
                 ) { onRead(mail) }
             }
@@ -189,7 +191,7 @@ private fun Inbox(os: PhoneOs, modifier: Modifier, onRead: (Email) -> Unit) {
 }
 
 @Composable
-private fun MailRow(mail: Email, face: Face, unread: Boolean, appear: () -> Float, onOpen: () -> Unit) {
+private fun MailRow(mail: Email, face: Face, unread: Boolean, calendar: StoryCalendar, appear: () -> Float, onOpen: () -> Unit) {
     val press = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val label = "${mail.sender}, ${mail.subject}".let { if (unread) stringResource(R.string.mail_unread, it) else it }
@@ -223,7 +225,7 @@ private fun MailRow(mail: Email, face: Face, unread: Boolean, appear: () -> Floa
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.width(8.dp))
-                PhoneText(arrived(mail), phoneText(12.sp, color = if (unread) PhoneColors.Accent else PhoneColors.TextFaint))
+                PhoneText(arrived(mail, calendar), phoneText(12.sp, color = if (unread) PhoneColors.Accent else PhoneColors.TextFaint))
             }
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -293,7 +295,7 @@ private fun Message(os: PhoneOs, mail: Email, modifier: Modifier, onBack: () -> 
                         PhoneText(mail.address, phoneText(12.5.sp, color = PhoneColors.TextMuted), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.height(2.dp))
                         PhoneText(
-                            "${stringResource(R.string.mail_to_me)} · ${arrived(mail, withTime = true)}",
+                            "${stringResource(R.string.mail_to_me)} · ${arrived(mail, os.owner.case.calendar, withTime = true)}",
                             phoneText(12.sp, color = PhoneColors.TextFaint),
                         )
                     }
@@ -365,12 +367,12 @@ private fun Attachment(name: String) {
 
 /** When it arrived: the time today, "Yesterday", or the date; [withTime] adds the time to dates. */
 @Composable
-private fun arrived(mail: Email, withTime: Boolean = false): String {
+private fun arrived(mail: Email, calendar: StoryCalendar, withTime: Boolean = false): String {
     val time = formatClock(mail.minutes)
     return when (mail.daysAgo) {
         0 -> time
         1 -> stringResource(R.string.day_yesterday).let { if (withTime) "$it, $time" else it }
-        else -> GameTime.shortDate(mail.daysAgo).let { if (withTime) "$it, $time" else it }
+        else -> calendar.shortDate(mail.daysAgo).let { if (withTime) "$it, $time" else it }
     }
 }
 

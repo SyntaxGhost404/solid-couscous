@@ -204,6 +204,8 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
         Sfx.CallEnd -> R.raw.sfx_call_end
         Sfx.Toggle -> R.raw.sfx_toggle
         Sfx.Reveal -> R.raw.sfx_reveal
+        Sfx.Buzz -> R.raw.sfx_buzz
+        Sfx.Thread -> R.raw.sfx_thread
     }
 
     private companion object {

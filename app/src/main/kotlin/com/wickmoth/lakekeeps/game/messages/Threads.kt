@@ -3,13 +3,14 @@ package com.wickmoth.lakekeeps.game.messages
 import androidx.compose.ui.graphics.Color
 import com.wickmoth.lakekeeps.R
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.littlebird.SamsPhone
 
 /**
- * Placeholder conversations for the prototype. The story is not final: edit freely. Board
- * characters reuse their polaroid portraits; everyone else gets a placeholder face.
+ * Every phone's conversations: the prototype's placeholders for Theo and Mira (whose board
+ * characters reuse their polaroid portraits), and Sam's from [SamsPhone].
  */
 object Threads {
-    /** The game's "now": Saturday, 4:12 PM. Each live message moves the clock on 20 seconds. */
+    /** The prototype's "now": Saturday, 4:12 PM. Each live message moves the clock on 20 seconds. */
     const val NOW_MINUTES = 16 * 60 + 12
     const val SECONDS_PER_LIVE_LINE = 20
 
@@ -33,6 +34,10 @@ object Threads {
             says("And keep the police out of this.")
         },
     )
+
+    // the prototype's week ends on a Saturday
+    private val Thursday = Day(-2)
+    private val Wednesday = Day(-3)
 
     private val theo = listOf(
         PrivateNumber,
@@ -72,41 +77,41 @@ object Threads {
             id = "mira/priya",
             contact = Contact("Priya", Face.Photo(R.drawable.portrait_priya), "mobile", "Mobile · 555-0142"),
             history = listOf(
-                them("you coming tonight?", Day.Thursday, "6:58 PM"),
-                me("obviously. save me a spot by the fire", Day.Thursday, "7:02 PM"),
-                them("where did you go??", Day.Thursday, "10:06 PM"),
-                them("mira answer me", Day.Thursday, "10:31 PM"),
+                them("you coming tonight?", Thursday, "6:58 PM"),
+                me("obviously. save me a spot by the fire", Thursday, "7:02 PM"),
+                them("where did you go??", Thursday, "10:06 PM"),
+                them("mira answer me", Thursday, "10:31 PM"),
             ),
             readHistory = 2,
         ),
         Thread(
             id = "mira/felix",
             contact = Contact("Felix", Face.Photo(R.drawable.portrait_felix), "mobile", "Mobile · 555-0175"),
-            history = listOf(them("you up?", Day.Thursday, "11:52 PM")),
+            history = listOf(them("you up?", Thursday, "11:52 PM")),
             readHistory = 0,
         ),
         Thread(
             id = "mira/theo",
             contact = Contact("Theo", Face.Initial("T", Color(0xFF2F7F7A)), "mobile", "Mobile · 555-0103"),
             history = listOf(
-                them("need a ride to the bonfire?", Day.Thursday, "5:40 PM"),
-                me("marcus is driving me. see you there", Day.Thursday, "5:52 PM"),
-                them("save me a marshmallow", Day.Thursday, "5:53 PM"),
+                them("need a ride to the bonfire?", Thursday, "5:40 PM"),
+                me("marcus is driving me. see you there", Thursday, "5:52 PM"),
+                them("save me a marshmallow", Thursday, "5:53 PM"),
             ),
         ),
         Thread(
             id = "mira/mum",
             contact = Mum.copy(detail = "Mobile · 555-0121"),
-            history = listOf(them("Text me when you're home.", Day.Thursday, "8:47 PM")),
+            history = listOf(them("Text me when you're home.", Thursday, "8:47 PM")),
         ),
         Thread(
             id = "mira/heron",
             // the board's photo for this account is its no-photo placeholder, so it shows whole
             contact = Contact("night_heron", Face.Photo(R.drawable.portrait_heron, closeUp = false), "online contact", "Username · night_heron"),
             history = listOf(
-                them("did you tell anyone?", Day.Wednesday, "11:14 PM"),
-                me("no. not even priya", Day.Wednesday, "11:20 PM"),
-                them("good. thursday then", Day.Wednesday, "11:21 PM"),
+                them("did you tell anyone?", Wednesday, "11:14 PM"),
+                me("no. not even priya", Wednesday, "11:20 PM"),
+                them("good. thursday then", Wednesday, "11:21 PM"),
             ),
         ),
     )
@@ -114,9 +119,10 @@ object Threads {
     fun of(owner: Owner): List<Thread> = when (owner) {
         Owner.Theo -> theo
         Owner.Mira -> mira
+        Owner.Sam -> SamsPhone.threads
     }
 
-    val all: List<Thread> = theo + mira
+    val all: List<Thread> get() = theo + mira + SamsPhone.threads
 
     fun byId(id: String): Thread? = all.firstOrNull { it.id == id }
 }

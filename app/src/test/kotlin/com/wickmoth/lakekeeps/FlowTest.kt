@@ -1,5 +1,6 @@
 package com.wickmoth.lakekeeps
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -16,14 +17,22 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** Launches the real activity (splash theme, immersive window, sound bank) and plays the intro. */
+/**
+ * Launches the real activity (splash theme, immersive window, sound bank) and plays the intro into
+ * Little Bird: Sam's office, his phone, and the case saved with the game.
+ */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [36], qualifiers = "w360dp-h800dp-xhdpi")
 class FlowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
-    @Test fun introPlaysThroughToTheBoard() {
+    private companion object {
+        const val OPENING = "Is this Sam Novak? Dana Brooks gave me this number."
+        const val FIRST_REPLY = "This is Sam. Dana said you'd write."
+    }
+
+    @Test fun introPlaysThroughToTheOffice() {
         compose.mainClock.autoAdvance = false
         compose.onNodeWithContentDescription("wickmoth").assertExists()
         compose.mainClock.advanceTimeBy(4_200)
@@ -31,7 +40,11 @@ class FlowTest {
         compose.mainClock.advanceTimeBy(4_500)
         compose.onNodeWithText("Lake Keeps").assertExists()
         compose.mainClock.advanceTimeBy(8_200)
-        compose.onNodeWithContentDescription("Photo of Mira").assertExists()
+        compose.onNodeWithContentDescription("A photograph, turned to face the board").assertExists()
+        compose.onNodeWithContentDescription("Sam's phone, on the desk").assertExists()
+        // the single-device rule: the prototype's phones are nowhere on the desk
+        compose.onNodeWithContentDescription("Theo's phone, on the desk").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Mira's phone, on the desk").assertDoesNotExist()
     }
 
     @Test fun tapsSkipEachIntroScreen() {
@@ -45,11 +58,11 @@ class FlowTest {
         compose.mainClock.advanceTimeBy(800)
         compose.onRoot().performClick()
         compose.mainClock.advanceTimeBy(1_300)
-        compose.onNodeWithContentDescription("Photo of Mira").assertExists()
+        compose.onNodeWithContentDescription("A photograph, turned to face the board").assertExists()
     }
 
-    /** Taps through the three intro screens to the settled case board. */
-    private fun skipToBoard() {
+    /** Taps through the three intro screens to the settled office. */
+    private fun skipToOffice() {
         compose.mainClock.autoAdvance = false
         repeat(3) {
             compose.mainClock.advanceTimeBy(500)
@@ -75,58 +88,62 @@ class FlowTest {
         compose.mainClock.advanceTimeBy(settleMs)
     }
 
-    @Test fun phoneOpensAndClosesFromTheBoard() {
-        skipToBoard()
-        compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
-        compose.mainClock.advanceTimeBy(1_500)
-        compose.onNodeWithText("Theo's phone").assertExists()
-        compose.onNodeWithContentDescription("Loose Ends").assertExists()
-        compose.onNodeWithContentDescription("Back to the case board").performClick()
-        compose.mainClock.advanceTimeBy(1_200)
-        compose.onNodeWithContentDescription("Loose Ends").assertDoesNotExist()
+    /** Picks Sam's phone up from the desk and waits for its home screen. */
+    private fun pickUpThePhone() {
+        compose.onNodeWithContentDescription("Sam's phone, on the desk").performClick()
+        until(text = "Sam's phone")
     }
 
-    @Test fun conversationPlaysThroughAndIsSavedWithTheGame() {
-        skipToBoard()
-        compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
-        until(label = "Private number: Theo. 1 unread message")
-        compose.onNodeWithContentDescription("Private number: Theo. 1 unread message").performClick()
-        until(label = "Reply: Do I know you?")
-        compose.onNodeWithContentDescription("Reply: Do I know you?").performClick()
-        until(label = "Reply: How do you know that?")
-        compose.onNodeWithContentDescription("Reply: How do you know that?").performClick()
-        until(text = "Private number is offline")
+    @Test fun phoneOpensAndClosesFromTheOffice() {
+        skipToOffice()
+        pickUpThePhone()
+        compose.onNodeWithContentDescription("Settings").assertExists()
+        compose.onNodeWithContentDescription("Back to the case board").performClick()
+        compose.mainClock.advanceTimeBy(1_200)
+        compose.onNodeWithContentDescription("Settings").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Sam's phone, on the desk").assertExists()
+    }
+
+    @Test fun amyWritesFirstAndTheConversationIsSavedWithTheGame() {
+        skipToOffice()
+        // the case opens with Amy's message, not a call: it waits in Messages, beside Dana's
+        // referral from earlier in the afternoon
+        pickUpThePhone()
+        until(label = "Messages, 2 unread messages")
+        compose.onNodeWithContentDescription("Messages, 2 unread messages").performClick()
+        until(label = "Amy Hart, 1 unread message")
+        compose.onNodeWithContentDescription("Amy Hart, 1 unread message").performClick()
+        until(text = OPENING)
+        until(label = "Reply: $FIRST_REPLY")
+        compose.onNodeWithContentDescription("Reply: $FIRST_REPLY").performClick()
+        until(text = "Sorry. I've typed this out ten times and deleted it.")
 
         // Recreated (as after the process is reclaimed): the phone comes back on its home screen
-        // with the conversation kept, and the private number does not start over.
+        // with the conversation kept, and Amy doesn't start it over.
         compose.activityRule.scenario.recreate()
         compose.mainClock.advanceTimeBy(3_000)
-        compose.onNodeWithContentDescription("Private number: Theo. 1 unread message").assertDoesNotExist()
         compose.onNodeWithContentDescription("Messages, 1 unread message").performClick()
         compose.mainClock.advanceTimeBy(800)
-        compose.onNodeWithText("And keep the police out of this.").assertExists()
-        compose.onNodeWithContentDescription("Private number").performClick()
+        compose.onNodeWithContentDescription("Amy Hart").performClick()
         compose.mainClock.advanceTimeBy(800)
-        compose.onNodeWithText("You've walked past me a hundred times.").assertExists()
-        compose.onNodeWithText("Small town. People watch the pier.").assertExists()
-        compose.onNodeWithText("Private number is offline").assertExists()
+        compose.onAllNodesWithText(OPENING).assertCountEquals(1)
+        compose.onNodeWithText(FIRST_REPLY).assertExists()
     }
 
     @Test fun callIsLoggedAndSavedWithTheGame() {
-        skipToBoard()
-        compose.onNodeWithContentDescription("Mira's phone, on the desk").performClick()
-        compose.mainClock.advanceTimeBy(1_600)
+        skipToOffice()
+        pickUpThePhone()
         compose.onNodeWithContentDescription("Phone").performClick()
         until(label = "Keypad")
         compose.onNodeWithContentDescription("Keypad").performClick()
         compose.mainClock.advanceTimeBy(600)
-        for (k in "5550142") {
+        for (k in "5550134") {
             compose.onNode(hasContentDescription(k.toString()) and hasClickAction()).performClick()
             compose.mainClock.advanceTimeBy(100)
         }
         compose.onNodeWithContentDescription("Call").performClick()
         until(text = "calling…", settleMs = 1_500)
-        compose.onNodeWithText("Priya").assertExists()
+        compose.onNodeWithText("Dana Brooks").assertExists()
         compose.onNodeWithContentDescription("End call").performClick()
         until(text = "ended", settleMs = 2_000)
 
@@ -135,24 +152,26 @@ class FlowTest {
         compose.mainClock.advanceTimeBy(1_500)
         compose.onNodeWithContentDescription("Phone").performClick()
         compose.mainClock.advanceTimeBy(800)
-        compose.onNodeWithContentDescription("Outgoing call to Priya, now").assertExists()
+        // the one from four days ago, and this one
+        compose.onAllNodes(hasContentDescription("Outgoing call to Dana Brooks", substring = true)).assertCountEquals(2)
     }
 
-    @Test fun resetFromSettingsStartsTheGameOver() {
-        skipToBoard()
-        compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
-        until(label = "Private number: Theo. 1 unread message")
+    @Test fun resetFromSettingsStartsTheCaseOver() {
+        skipToOffice()
+        pickUpThePhone()
+        until(label = "Messages, 2 unread messages")
         compose.onNodeWithContentDescription("Settings").performClick()
         until(label = "Reset progress")
         compose.onNodeWithContentDescription("Reset progress").performClick()
         until(label = "Reset")
+        compose.onNodeWithText("the case starts again", substring = true).assertExists()
         compose.onNodeWithContentDescription("Reset").performClick()
         compose.mainClock.advanceTimeBy(600)
         compose.onNodeWithContentDescription("wickmoth").assertExists()
 
-        // From the top again: the private number has never written, so it writes again.
-        skipToBoard()
-        compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
-        until(label = "Private number: Theo. 1 unread message")
+        // From the top again: Amy has never written, so she writes again.
+        skipToOffice()
+        pickUpThePhone()
+        until(label = "Messages, 2 unread messages")
     }
 }

@@ -2,15 +2,16 @@ package com.wickmoth.lakekeeps.game.gallery
 
 import androidx.compose.runtime.Immutable
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.littlebird.SamsPhone
 
 /**
  * A photo on a phone. Until its art is made it shows as a placeholder, and [caption] says what it
- * will be. It was taken [daysAgo] days before the game's "now".
+ * will be. It was taken [daysAgo] days before its case's "today".
  */
 @Immutable
 data class Photo(val id: String, val caption: String, val daysAgo: Int)
 
-/** Placeholder photo albums for the prototype. The story is not final: edit freely. */
+/** Every phone's photos: the prototype's placeholders for Theo and Mira, and Sam's from [SamsPhone]. */
 object Albums {
     private val miraPhotos = listOf(
         Photo("mira/bonfire", "Bonfire at the cove", 2),
@@ -42,11 +43,12 @@ object Albums {
     fun photos(owner: Owner): List<Photo> = when (owner) {
         Owner.Theo -> theoPhotos
         Owner.Mira -> miraPhotos
+        Owner.Sam -> SamsPhone.photos
     }.sortedBy { it.daysAgo }
 
     /** The photos [owner] hid from the main album, newest first. */
     fun hidden(owner: Owner): List<Photo> = when (owner) {
-        Owner.Theo -> emptyList()
+        Owner.Theo, Owner.Sam -> emptyList()
         Owner.Mira -> miraHidden
     }.sortedBy { it.daysAgo }
 }

@@ -1,6 +1,7 @@
 package com.wickmoth.lakekeeps
 
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.case.CaseId
 import com.wickmoth.lakekeeps.game.messages.Beat
 import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Threads
@@ -27,14 +28,14 @@ class MessagesTest {
 
     @Test fun replayStopsAtTheFirstOpenQuestion() {
         val r = replay(sample, emptyList())
-        assertEquals(listOf(false to "one"), r.lines)
+        assertEquals(listOf(false to "one"), r.lines.map { it.mine to it.text })
         assertNotNull(r.pending)
         assertFalse(r.finished)
     }
 
     @Test fun replayFollowsTheChosenBranchAndRejoins() {
         val r = replay(sample, listOf(1))
-        assertEquals(listOf(false to "one", true to "b", false to "after b", false to "two"), r.lines)
+        assertEquals(listOf(false to "one", true to "b", false to "after b", false to "two"), r.lines.map { it.mine to it.text })
         assertTrue(r.finished)
     }
 
@@ -43,7 +44,7 @@ class MessagesTest {
         val t = Threads.PrivateNumber
         assertFalse(m.hasStarted(t))
         assertFalse(t in m.inbox(Owner.Theo))
-        assertEquals(Threads.NOW_MINUTES, m.clock)
+        assertEquals(Threads.NOW_MINUTES, m.clock(CaseId.Prototype))
 
         m.deliver(t)
         assertTrue(m.hasStarted(t))
@@ -74,7 +75,7 @@ class MessagesTest {
         }
         assertNull(m.question(t))
         assertEquals("And keep the police out of this.", m.lines(t).last().text)
-        assertTrue(m.clock > Threads.NOW_MINUTES)
+        assertTrue(m.clock(CaseId.Prototype) > Threads.NOW_MINUTES)
         assertTrue("still online right after the last line", m.isLive(t))
         assertTrue(m.isOver(t))
 

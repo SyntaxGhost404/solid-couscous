@@ -4,6 +4,8 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateMapOf
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.case.CaseId
+import com.wickmoth.lakekeeps.game.case.CaseProgress
 
 /**
  * How far a thread has got: the replies picked, how many live lines have arrived, how many lines
@@ -24,12 +26,18 @@ data class Progress(
 data class Notice(val thread: Thread, val line: Line, val unread: Int)
 
 /** Orders lines across days: today's latest first when sorted descending. */
-val Line.sortKey: Int get() = -day.ordinal * 1440 + minutes
+val Line.sortKey: Int get() = day.index * 1440 + minutes
 
-/** The player's progress through every thread on both phones. Saved with the game state. */
+/**
+ * The player's progress through every thread on every phone. Saved with the game state. Scripts
+ * wait at their gates on, and report their marks to, the case's [flags].
+ */
 @Stable
 class Messages(initial: Map<String, Progress> = emptyMap()) {
     private val progress = mutableStateMapOf<String, Progress>().apply { putAll(initial) }
+
+    /** The case progress the scripts read and write; the game state shares its own. */
+    var flags: CaseProgress = CaseProgress()
 
     operator fun get(thread: Thread): Progress = progress[thread.id] ?: Progress()
 
@@ -37,15 +45,13 @@ class Messages(initial: Map<String, Progress> = emptyMap()) {
         progress[thread.id] = change(this[thread])
     }
 
-    fun replay(thread: Thread): Replay? = thread.live?.let { replay(it, this[thread].chosen) }
+    fun replay(thread: Thread): Replay? = thread.live?.let { replay(it, this[thread].chosen, flags::has) }
 
     /** Every line visible in the conversation, oldest first. Live lines are stamped as they arrive. */
     fun lines(thread: Thread): List<Line> {
         val live = replay(thread) ?: return thread.history
         val delivered = this[thread].delivered.coerceAtMost(live.lines.size)
-        return thread.history + live.lines.take(delivered).mapIndexed { i, (mine, text) ->
-            Line(mine, text, Day.Today, Threads.NOW_MINUTES + (i + 1) * Threads.SECONDS_PER_LIVE_LINE / 60)
-        }
+        return thread.history + live.lines.take(delivered).map { Line(it.mine, it.text, it.day, it.minutes, it.attachment) }
     }
 
     /** A live thread only appears once its first message has arrived. */
@@ -55,14 +61,14 @@ class Messages(initial: Map<String, Progress> = emptyMap()) {
     fun isLive(thread: Thread): Boolean =
         thread.live != null && this[thread].delivered > 0 && !this[thread].signedOff
 
-    /** Every line has arrived and no question is left open. */
+    /** Every line so far has arrived and no question is open: the conversation is over, for now or for good. */
     fun isOver(thread: Thread): Boolean {
         val live = replay(thread) ?: return true
         return live.finished && this[thread].delivered >= live.lines.size
     }
 
-    /** The next live line still to arrive: (sent by the player, text). */
-    fun nextLine(thread: Thread): Pair<Boolean, String>? = replay(thread)?.lines?.getOrNull(this[thread].delivered)
+    /** The next live line still to arrive. */
+    fun nextLine(thread: Thread): LiveLine? = replay(thread)?.lines?.getOrNull(this[thread].delivered)
 
     /** The open question, once everything before it has arrived. */
     fun question(thread: Thread): Beat.Ask? {
@@ -70,7 +76,15 @@ class Messages(initial: Map<String, Progress> = emptyMap()) {
         return if (this[thread].delivered >= live.lines.size) live.pending else null
     }
 
-    fun deliver(thread: Thread) = edit(thread) { it.copy(delivered = it.delivered + 1) }
+    /**
+     * The next line arrives. A contact who had signed off is back for it, and the case hears of any
+     * marks the conversation has now passed.
+     */
+    fun deliver(thread: Thread) {
+        edit(thread) { it.copy(delivered = it.delivered + 1, signedOff = false) }
+        val delivered = this[thread].delivered
+        replay(thread)?.marks?.forEach { if (it.after <= delivered) flags.set(it.flag) }
+    }
 
     /** The contact goes offline; only once the conversation is over. */
     fun signOff(thread: Thread) {
@@ -107,9 +121,14 @@ class Messages(initial: Map<String, Progress> = emptyMap()) {
     fun inbox(owner: Owner): List<Thread> =
         Threads.of(owner).filter(::hasStarted).sortedByDescending { lines(it).last().sortKey }
 
-    /** The in-game time of day, in minutes after midnight. */
-    val clock: Int
-        get() = Threads.NOW_MINUTES + progress.values.sumOf { it.delivered } * Threads.SECONDS_PER_LIVE_LINE / 60
+    /** The time of day in [case] (minutes after midnight): when its latest live line arrived today. */
+    fun clock(case: CaseId): Int {
+        val latest = case.owners.flatMap(Threads::of).mapNotNull { thread ->
+            val live = replay(thread) ?: return@mapNotNull null
+            live.lines.take(this[thread].delivered).filter { it.day == Day.Today }.maxOfOrNull { it.minutes }
+        }.maxOrNull()
+        return maxOf(case.opensAt, latest ?: case.opensAt)
+    }
 
     /** Forgets all progress, as when the game is started over. */
     fun clear() = progress.clear()

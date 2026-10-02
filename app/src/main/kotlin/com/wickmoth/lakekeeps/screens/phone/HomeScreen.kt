@@ -98,6 +98,19 @@ internal fun phoneSpec(owner: Owner): PhoneSpec = when (owner) {
             App(R.string.app_settings, R.drawable.icon_settings, PhoneApp.Settings),
         ),
     )
+    // Little Bird's detective. The browser opens in a later act.
+    Owner.Sam -> PhoneSpec(
+        R.string.phone_sam,
+        R.drawable.wallpaper_theo,
+        listOf(
+            App(R.string.app_messages, R.drawable.icon_messages, PhoneApp.Messages),
+            App(R.string.app_phone, R.drawable.icon_phone, PhoneApp.Calls),
+            App(R.string.app_mail, R.drawable.icon_mail, PhoneApp.Mail),
+            App(R.string.app_photos, R.drawable.icon_gallery, PhoneApp.Gallery),
+            App(R.string.app_browser, R.drawable.icon_browser),
+            App(R.string.app_settings, R.drawable.icon_settings, PhoneApp.Settings),
+        ),
+    )
 }
 
 /** Grid metrics on the design frame. */

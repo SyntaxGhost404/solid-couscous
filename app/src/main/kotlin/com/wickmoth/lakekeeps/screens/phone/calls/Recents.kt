@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wickmoth.lakekeeps.R
+import com.wickmoth.lakekeeps.game.case.case
 import com.wickmoth.lakekeeps.game.phone.Ago
 import com.wickmoth.lakekeeps.game.phone.Call
 import com.wickmoth.lakekeeps.game.phone.CallKind
@@ -52,7 +53,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun Recents(os: PhoneOs) {
     val calls = os.calls.calls(os.owner)
-    val now = os.messages.clock
+    val now = os.messages.clock(os.owner.case)
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 6.dp, bottom = 24.dp),
