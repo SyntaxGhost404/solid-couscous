@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.screens.board.DeskPhone
 import com.wickmoth.lakekeeps.screens.board.PhoneShape
 import com.wickmoth.lakekeeps.screens.board.deskPhone
@@ -40,6 +41,7 @@ data class BackPeek(val progress: Float, val fromLeft: Boolean)
 @Composable
 fun PhoneOverlay(
     owner: Owner,
+    messages: Messages,
     boardFit: FrameFit,
     lift: () -> Float,
     content: () -> Float,
@@ -117,7 +119,7 @@ fun PhoneOverlay(
                     if (glare > 0f) drawRect(Color.White, alpha = 0.06f * glare)
                 },
         ) {
-            PhoneHome(owner, content, onBack)
+            PhoneScreen(owner, messages, content, onPutDown = onBack)
         }
     }
 }

@@ -5,7 +5,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,26 +16,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
@@ -97,23 +98,27 @@ internal fun phoneSpec(owner: Owner): PhoneSpec = when (owner) {
 }
 
 /** Grid metrics on the design frame. */
-private const val ICON = 64f
+internal const val ICON = 64f
 private const val FIRST_ROW = 136.5f
 private const val ROW_STEP = 118f
 private val Columns = floatArrayOf(55f, 136.5f, 218.5f, 300f)
 
+/** Top-left of the icon tile in grid slot [index], on the design frame. */
+internal fun iconTopLeft(index: Int) = Offset(Columns[index % 4] - ICON / 2f, FIRST_ROW + (index / 4) * ROW_STEP - ICON / 2f)
+
 /** Total length of the icons' staggered entrance, in ms of [content] progress. */
-private const val ICONS_MS = 760f
+internal const val ICONS_MS = 760f
 
 /**
- * A phone's home screen at full size. [content] (0..1) drives the status bar and the staggered
- * arrival of the icons, so the same screen can be shown while it is still being lifted.
+ * A phone's home screen at full size. [content] (0..1) drives the staggered arrival of the icons,
+ * so the same screen can be shown while it is still being lifted. The Messages icon carries the
+ * [unread] badge and opens the app from its tile.
  */
 @Composable
-fun PhoneHome(owner: Owner, content: () -> Float, onBack: () -> Unit) {
+fun HomeScreen(owner: Owner, content: () -> Float, unread: () -> Int, onOpenMessages: () -> Unit, modifier: Modifier = Modifier) {
     val spec = remember(owner) { phoneSpec(owner) }
     val fit = rememberFrameFit(Alignment.TopCenter)
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(modifier.fillMaxSize().background(Color.Black)) {
         Image(
             painter = painterResource(spec.wallpaper),
             contentDescription = null,
@@ -133,113 +138,32 @@ fun PhoneHome(owner: Owner, content: () -> Float, onBack: () -> Unit) {
                 .background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.5f), 1f to Color.Transparent)),
         )
         DesignFrame(fit) {
-            StatusBar(stringResource(spec.owner), content, onBack)
-            spec.apps.forEachIndexed { i, app -> AppIcon(app, i, content) }
-        }
-    }
-}
-
-@Composable
-private fun BoxScope.StatusBar(owner: String, content: () -> Float, onBack: () -> Unit) {
-    val press = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-    val view = LocalView.current
-    val audio = LocalAudio.current
-    val shown = { window(content() * ICONS_MS, 0f, 260f, Ease.OutCubic) }
-    // The diamond takes the player back to the case board.
-    Canvas(
-        Modifier
-            .offset(9.dp, 37.dp)
-            .size(44.dp, 44.dp)
-            .graphicsLayer {
-                alpha = shown()
-                val s = 1f - 0.18f * press.value
-                scaleX = s
-                scaleY = s
-                rotationZ = 90f * press.value
+            spec.apps.forEachIndexed { i, app ->
+                if (app.label == R.string.app_messages) {
+                    AppIcon(app, i, content, badge = unread, onOpen = onOpenMessages)
+                } else {
+                    AppIcon(app, i, content)
+                }
             }
-            .tactile(
-                label = stringResource(R.string.back_to_board),
-                onPress = { down -> scope.launch { press.animateTo(if (down) 1f else 0f, spring(dampingRatio = 0.55f, stiffness = 600f)) } },
-            ) {
-                view.haptic(Haptic.Tick)
-                audio.play(Sfx.Tap, 0.6f)
-                onBack()
-            },
-    ) {
-        val c = Offset(size.width / 2f, size.height / 2f)
-        val w = 6.2f * density
-        val h = 8.2f * density
-        val diamond = Path().apply {
-            moveTo(c.x, c.y - h)
-            lineTo(c.x + w, c.y)
-            lineTo(c.x, c.y + h)
-            lineTo(c.x - w, c.y)
-            close()
-        }
-        drawPath(diamond, Color.White, style = Stroke(width = 1.7f * density, join = androidx.compose.ui.graphics.StrokeJoin.Round))
-        drawPath(diamond, Color.White, alpha = 0.35f * press.value)
-    }
-    BasicText(
-        text = owner,
-        style = TextStyle(fontFamily = Fonts.Quicksand, fontWeight = FontWeight.Medium, fontSize = 10.5.sp, color = Color.White.copy(alpha = 0.92f)),
-        softWrap = false,
-        modifier = Modifier
-            .align(Alignment.TopCenter)
-            .offset(y = 51.dp)
-            .graphicsLayer {
-                alpha = shown()
-                translationY = ((1f - shown()) * -4f).dp.toPx()
-            },
-    )
-    Canvas(
-        Modifier
-            .offset(292.dp, 50.dp)
-            .size(48.dp, 18.dp)
-            .graphicsLayer { alpha = shown() },
-    ) {
-        val dp = density
-        val cy = 9f * dp
-        // wifi: a dot and three arcs, each arc lighting up in turn as the screen wakes
-        val wifi = Offset(10f * dp, cy + 4.6f * dp)
-        drawCircle(Color.White, radius = 1.3f * dp, center = wifi)
-        for (k in 1..3) {
-            val r = (2.6f + k * 2.6f) * dp
-            val a = window(content() * ICONS_MS, 60f + k * 60f, 140f)
-            drawArc(
-                Color.White,
-                startAngle = 225f,
-                sweepAngle = 90f,
-                useCenter = false,
-                topLeft = Offset(wifi.x - r, wifi.y - r),
-                size = Size(r * 2, r * 2),
-                style = Stroke(width = 1.5f * dp, cap = StrokeCap.Round),
-                alpha = a,
-            )
-        }
-        // battery
-        val left = 26f * dp
-        val bw = 17f * dp
-        val bh = 9.4f * dp
-        val top = cy - bh / 2f
-        drawRoundRect(Color.White, topLeft = Offset(left, top), size = Size(bw, bh), cornerRadius = CornerRadius(2.4f * dp), style = Stroke(width = 1.3f * dp))
-        drawRoundRect(Color.White, topLeft = Offset(left + bw + 0.8f * dp, cy - 2f * dp), size = Size(1.6f * dp, 4f * dp), cornerRadius = CornerRadius(0.8f * dp))
-        for (k in 0 until 3) {
-            val a = window(content() * ICONS_MS, 120f + k * 70f, 120f)
-            drawRoundRect(
-                Color.White,
-                topLeft = Offset(left + (2.4f + k * 4.2f) * dp, top + 2.2f * dp),
-                size = Size(3.0f * dp, bh - 4.4f * dp),
-                cornerRadius = CornerRadius(0.6f * dp),
-                alpha = a,
-            )
         }
     }
 }
 
 @Composable
-private fun BoxScope.AppIcon(app: App, index: Int, content: () -> Float) {
+private fun BoxScope.AppIcon(
+    app: App,
+    index: Int,
+    content: () -> Float,
+    badge: () -> Int = { 0 },
+    onOpen: (() -> Unit)? = null,
+) {
     val label = stringResource(app.label)
+    val unread = badge()
+    val spoken = when {
+        !app.enabled -> stringResource(R.string.app_unavailable, label)
+        unread > 0 -> "$label, ${pluralStringResource(R.plurals.unread, unread, unread)}"
+        else -> label
+    }
     val press = remember { Animatable(0f) }
     val shake = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -257,7 +181,7 @@ private fun BoxScope.AppIcon(app: App, index: Int, content: () -> Float) {
             .size(80.dp, 96.dp)
             .graphicsLayer { translationX = shake.value.dp.toPx() }
             .tactile(
-                label = if (app.enabled) label else stringResource(R.string.app_unavailable, label),
+                label = spoken,
                 enabled = app.enabled,
                 onPress = { down ->
                     scope.launch { press.animateTo(if (down) 1f else 0f, spring(dampingRatio = if (down) 0.9f else 0.42f, stiffness = 700f)) }
@@ -265,7 +189,7 @@ private fun BoxScope.AppIcon(app: App, index: Int, content: () -> Float) {
             ) {
                 if (app.enabled) {
                     view.haptic(Haptic.Tick)
-                    audio.play(Sfx.Tap, 0.8f)
+                    if (onOpen != null) onOpen() else audio.play(Sfx.Tap, 0.8f)
                 } else {
                     view.haptic(Haptic.Reject)
                     audio.play(Sfx.Denied)
@@ -298,6 +222,7 @@ private fun BoxScope.AppIcon(app: App, index: Int, content: () -> Float) {
                     alpha = fade() * if (app.enabled) 1f else 0.5f
                 },
         )
+        UnreadBadge(badge, appear)
         BasicText(
             text = label,
             style = TextStyle(
@@ -320,3 +245,45 @@ private fun BoxScope.AppIcon(app: App, index: Int, content: () -> Float) {
         )
     }
 }
+
+/** A count bubble on an icon's corner that pops in when messages arrive and bumps as more do. */
+@Composable
+private fun BoxScope.UnreadBadge(count: () -> Int, appear: () -> Float) {
+    val n = count()
+    val pop = remember { Animatable(if (n > 0) 1f else 0f) }
+    var shown by remember { mutableIntStateOf(n) }
+    LaunchedEffect(n) {
+        if (n > 0) shown = n
+        when {
+            n > 0 && pop.value < 1f -> pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 500f))
+            n > 0 -> {
+                pop.snapTo(1.25f)
+                pop.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = 600f))
+            }
+            else -> pop.animateTo(0f, tween(160))
+        }
+    }
+    if (shown <= 0) return
+    Box(
+        Modifier
+            .align(Alignment.TopCenter)
+            .offset(x = 27.dp, y = (-6).dp)
+            .size(20.dp)
+            .graphicsLayer {
+                val s = pop.value * appear().coerceIn(0f, 1f)
+                scaleX = s
+                scaleY = s
+                alpha = pop.value.coerceIn(0f, 1f)
+            }
+            .background(BadgeRed, CircleShape)
+            .clearAndSetSemantics { },
+        contentAlignment = Alignment.Center,
+    ) {
+        BasicText(
+            text = if (shown > 9) "9+" else shown.toString(),
+            style = TextStyle(fontFamily = Fonts.Quicksand, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White),
+        )
+    }
+}
+
+private val BadgeRed = Color(0xFFE5484D)

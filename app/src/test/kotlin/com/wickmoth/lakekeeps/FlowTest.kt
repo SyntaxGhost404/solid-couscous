@@ -1,6 +1,8 @@
 package com.wickmoth.lakekeeps
 
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -44,7 +46,8 @@ class FlowTest {
         compose.onNodeWithContentDescription("Photo of Mira").assertExists()
     }
 
-    @Test fun phoneOpensAndClosesFromTheBoard() {
+    /** Taps through the three intro screens to the settled case board. */
+    private fun skipToBoard() {
         compose.mainClock.autoAdvance = false
         repeat(3) {
             compose.mainClock.advanceTimeBy(500)
@@ -52,6 +55,26 @@ class FlowTest {
             compose.mainClock.advanceTimeBy(1_400)
         }
         compose.mainClock.advanceTimeBy(1_000)
+    }
+
+    /**
+     * Plays frames until something with [label] (or [text]) is in the UI, then [settleMs] more so
+     * whatever brought it in has finished moving.
+     */
+    private fun until(label: String? = null, text: String? = null, settleMs: Long = 800, limitMs: Long = 15_000) {
+        var waited = 0L
+        fun found() = (if (text != null) compose.onAllNodesWithText(text) else compose.onAllNodesWithContentDescription(label!!))
+            .fetchSemanticsNodes().isNotEmpty()
+        while (!found()) {
+            check(waited < limitMs) { "${label ?: text} never appeared" }
+            compose.mainClock.advanceTimeBy(16)
+            waited += 16
+        }
+        compose.mainClock.advanceTimeBy(settleMs)
+    }
+
+    @Test fun phoneOpensAndClosesFromTheBoard() {
+        skipToBoard()
         compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
         compose.mainClock.advanceTimeBy(1_500)
         compose.onNodeWithText("Theo's phone").assertExists()
@@ -59,5 +82,31 @@ class FlowTest {
         compose.onNodeWithContentDescription("Back to the case board").performClick()
         compose.mainClock.advanceTimeBy(1_200)
         compose.onNodeWithContentDescription("Loose Ends").assertDoesNotExist()
+    }
+
+    @Test fun conversationPlaysThroughAndIsSavedWithTheGame() {
+        skipToBoard()
+        compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
+        until(label = "Private number: Theo. 1 unread message")
+        compose.onNodeWithContentDescription("Private number: Theo. 1 unread message").performClick()
+        until(label = "Reply: Do I know you?")
+        compose.onNodeWithContentDescription("Reply: Do I know you?").performClick()
+        until(label = "Reply: How do you know that?")
+        compose.onNodeWithContentDescription("Reply: How do you know that?").performClick()
+        until(text = "Private number is offline")
+
+        // Recreated (as after the process is reclaimed): the phone comes back on its home screen
+        // with the conversation kept, and the private number does not start over.
+        compose.activityRule.scenario.recreate()
+        compose.mainClock.advanceTimeBy(3_000)
+        compose.onNodeWithContentDescription("Private number: Theo. 1 unread message").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Messages, 1 unread message").performClick()
+        compose.mainClock.advanceTimeBy(800)
+        compose.onNodeWithText("And keep the police out of this.").assertExists()
+        compose.onNodeWithContentDescription("Private number").performClick()
+        compose.mainClock.advanceTimeBy(800)
+        compose.onNodeWithText("You've walked past me a hundred times.").assertExists()
+        compose.onNodeWithText("Small town. People watch the pier.").assertExists()
+        compose.onNodeWithText("Private number is offline").assertExists()
     }
 }

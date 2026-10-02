@@ -1,11 +1,16 @@
 # What the Lake Keeps
 
 A full-screen Android narrative investigation game, built natively in Kotlin with Jetpack Compose.
-This is the initial build: an intro sequence, a case board, and two in-game phones.
+This prototype has an intro sequence, a case board, and two in-game phones with a working
+Messages app.
 
 | Studio ident | Advisory | Title | Case board | Theo's phone | Mira's phone |
 |---|---|---|---|---|---|
 | ![](docs/screens/1-studio.png) | ![](docs/screens/2-advisory.png) | ![](docs/screens/3-title.png) | ![](docs/screens/4-board.png) | ![](docs/screens/5-theo-phone.png) | ![](docs/screens/6-mira-phone.png) |
+
+| New message | Live conversation | Conversation over | Inbox | Contact card | Notification shade |
+|---|---|---|---|---|---|
+| ![](docs/screens/7-heads-up.png) | ![](docs/screens/8-live-chat.png) | ![](docs/screens/9-chat-ended.png) | ![](docs/screens/10-inbox.png) | ![](docs/screens/11-contact.png) | ![](docs/screens/12-shade.png) |
 
 ## Originality
 
@@ -15,6 +20,11 @@ how they behave. Everything you see or hear is original to this project: the stu
 logo, game title, cast, story details, illustrations, icons, wallpapers, layout composition and
 sounds. Treat **wickmoth** and **What the Lake Keeps** as placeholders. They live in
 `res/values/strings.xml`.
+
+The Messages app, status bar and notification shade were planned from a second set of screenshots
+from the same game. Those served only as a functional reference for layout, features and
+behaviour. Their visuals, names and dialogue are not reused, and the phone UI follows this game's
+own night palette and type.
 
 ## What's in the build
 
@@ -38,11 +48,36 @@ sounds. Treat **wickmoth** and **What the Lake Keeps** as placeholders. They liv
    - Locked apps (dimmed) shake, with a reject haptic.
    - The ◇ button, system back, or a predictive-back gesture puts the phone back down. During the
      gesture the phone shrinks with your swipe.
+   - The status bar shows the in-game clock (it moves on as messages arrive), a message icon
+     while notifications are waiting, and the owner's name on the home screen. The Messages icon
+     carries an unread count that pops in and bumps as messages land.
+6. **Notification shade.** Pull the status bar down, or tap it. The shade shows a large clock and
+   the date, a sound toggle that mutes every game sound and is remembered, and the waiting
+   conversations. Tap a notification to open its conversation, or swipe it sideways to clear it.
+   Back, the close button, or a tap below the panel closes it.
+7. **Messages.** The app opens out of its icon (or out of the notification you tapped) and
+   shrinks back into its icon when closed.
+   - The inbox lists conversations newest first, with avatars, presence dots, previews, times and
+     unread counts. Opening one slides it in over the inbox. Back or the arrow slides it away.
+   - Conversations show day chips and grouped bubbles with times. Tap the contact's name for
+     their contact card.
+   - A live conversation: soon after Theo's phone first wakes, a private number messages him and a
+     banner slides in (tap it, or flick it away). The contact types, you pick one of two replies,
+     and the script branches on your choice. While they are online you cannot leave: the back
+     and close buttons and the ◇ are hidden, and system back only nudges the replies. A moment
+     after their last line they sign off, and navigation comes back.
+   - Replies, what has been read, and cleared notifications are saved with the game.
 
-Intro screens advance on their own, and a tap skips ahead. App screens beyond the home screens are
-not part of this build, so tapping an app gives press feedback only. Taps carry haptics, and a
-synthesised lake ambience plays from the title on. The ambience pauses in the background and
-respects audio focus.
+Intro screens advance on their own, and a tap skips ahead. Messages is the only app that opens;
+tapping any other app gives press feedback only. Taps carry haptics, and a synthesised lake
+ambience plays from the title on. The ambience pauses in the background and respects audio focus.
+The phones add sound effects for messages arriving and being sent, the notification chime, apps
+and the shade opening and closing, and a contact going offline.
+
+All conversations are placeholders while the story is open. They live in
+`game/messages/Threads.kt`, written with a small script builder (`says`, `ask`, `reply`).
+Contacts from the board reuse their polaroid portraits. Everyone else gets a lettered or no-photo
+placeholder.
 
 ## Build and run
 
@@ -63,9 +98,11 @@ frame is scaled uniformly to fit, with full-bleed backgrounds around it on other
 ## Tests
 
 ```sh
-./gradlew :app:testDebugUnitTest      # flow tests on the real activity (Robolectric)
+./gradlew :app:testDebugUnitTest      # message scripts and saved progress, plus flow tests on the real activity (Robolectric)
 ./gradlew :app:recordRoborazziDebug   # also renders every screen and animation frame to app/build/shots/
 ```
+
+The flow tests include a whole live conversation that survives the activity being recreated.
 
 ## Art and audio pipelines
 
@@ -76,7 +113,7 @@ stock assets.
 ```sh
 pip install fonttools numpy scipy
 python3 tools/art/build.py [--preview]   # rewrites app/src/main/res/drawable/*.xml
-python3 tools/audio/synth.py             # rewrites app/src/main/res/raw/*.ogg (needs ffmpeg)
+python3 tools/audio/synth.py [name ...]  # rewrites app/src/main/res/raw/*.ogg, or only the named ones (needs ffmpeg)
 ```
 
 `--preview` renders contact sheets to `tools/art/out/` using a local headless Chromium.
@@ -87,11 +124,13 @@ python3 tools/audio/synth.py             # rewrites app/src/main/res/raw/*.ogg (
 app/src/main/kotlin/com/wickmoth/lakekeeps/
   MainActivity.kt          immersive window, splash hand-off, sound lifecycle
   game/                    stage flow and saved state
+  game/messages/           conversation scripts, placeholder threads, message progress
   ui/                      design frame, motion helpers, touch and haptics, fonts, palette
   audio/                   sound bank (SoundPool effects, looping ambience)
   screens/studio|advisory|title/
   screens/board/           board layout data, board rendering, desk, board-to-phone scene
-  screens/phone/           home screens and the pick-up transition
+  screens/phone/           home screens, status bar, shade and banner, the pick-up transition
+  screens/phone/messages/  the Messages app: inbox, conversation, contact card
 ```
 
 ## Licences

@@ -9,17 +9,32 @@ import android.media.MediaPlayer
 import android.media.SoundPool
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.core.content.edit
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.wickmoth.lakekeeps.R
 
 /**
  * Plays the effects through a SoundPool and loops the ambience through a MediaPlayer. The
- * ambience only runs while the game is visible and holds audio focus.
+ * ambience only runs while the game is visible, holds audio focus and is not muted.
  */
 class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
     private val app = context.applicationContext
     private val audioManager = app.getSystemService(AudioManager::class.java)
+    private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    private var mutedState by mutableStateOf(settings.getBoolean(KEY_MUTED, false))
+
+    override var muted: Boolean
+        get() = mutedState
+        set(value) {
+            mutedState = value
+            settings.edit { putBoolean(KEY_MUTED, value) }
+            update()
+        }
 
     private val effectAttributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_GAME)
@@ -61,6 +76,7 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
         .build()
 
     override fun play(sfx: Sfx, volume: Float) {
+        if (muted) return
         val id = effects[sfx] ?: return
         val v = (volume * EFFECTS_LEVEL).coerceIn(0f, 1f)
         pool.play(id, v, v, 1, 0, 1f)
@@ -90,7 +106,7 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
     }
 
     private fun update() {
-        if (wanted && visible) startAmbience() else stopAmbience()
+        if (wanted && visible && !muted) startAmbience() else stopAmbience()
     }
 
     private fun startAmbience() {
@@ -146,10 +162,17 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
         Sfx.Putdown -> R.raw.sfx_putdown
         Sfx.Denied -> R.raw.sfx_denied
         Sfx.Scribble -> R.raw.sfx_scribble
+        Sfx.MessageIn -> R.raw.sfx_msg_in
+        Sfx.MessageOut -> R.raw.sfx_msg_out
+        Sfx.Notify -> R.raw.sfx_notify
+        Sfx.AppOpen -> R.raw.sfx_app_open
+        Sfx.AppClose -> R.raw.sfx_app_close
+        Sfx.Offline -> R.raw.sfx_offline
     }
 
     private companion object {
         const val AMBIENCE_LEVEL = 0.55f
         const val EFFECTS_LEVEL = 0.9f
+        const val KEY_MUTED = "muted"
     }
 }

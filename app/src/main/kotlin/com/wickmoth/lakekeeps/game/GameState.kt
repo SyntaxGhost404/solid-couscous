@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.wickmoth.lakekeeps.game.messages.Messages
 
 /** The intro plays once, in order, and lands on the case board. */
 enum class Stage { Studio, Advisory, Title, Board }
@@ -15,7 +16,12 @@ enum class Stage { Studio, Advisory, Title, Board }
 enum class Owner { Theo, Mira }
 
 @Stable
-class GameState(stage: Stage, phone: Owner?, boardSettled: Boolean) {
+class GameState(
+    stage: Stage,
+    phone: Owner?,
+    boardSettled: Boolean,
+    val messages: Messages = Messages(),
+) {
     var stage by mutableStateOf(stage)
         private set
 
@@ -31,12 +37,14 @@ class GameState(stage: Stage, phone: Owner?, boardSettled: Boolean) {
 
     companion object {
         val Saver = listSaver<GameState, Any?>(
-            save = { listOf(it.stage.name, it.phone?.name, it.boardSettled) },
+            save = { listOf(it.stage.name, it.phone?.name, it.boardSettled, it.messages.encode()) },
             restore = {
                 GameState(
                     stage = Stage.valueOf(it[0] as String),
                     phone = (it[1] as String?)?.let(Owner::valueOf),
                     boardSettled = it[2] as Boolean,
+                    // state saved by builds without messages has no fourth entry
+                    messages = Messages.decode(it.getOrNull(3) as String?),
                 )
             },
         )

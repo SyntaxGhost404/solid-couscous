@@ -1,11 +1,14 @@
 """Synthesises every sound in the game from oscillators and filtered noise (no samples).
 
-    python3 tools/audio/synth.py   # writes app/src/main/res/raw/*.ogg (needs numpy, scipy, ffmpeg)
+    python3 tools/audio/synth.py               # writes every app/src/main/res/raw/*.ogg
+    python3 tools/audio/synth.py sfx_notify    # writes only the named sounds
+(needs numpy, scipy and ffmpeg)
 """
 from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 
 import numpy as np
@@ -154,6 +157,79 @@ def scribble() -> np.ndarray:
     return normalise(fade(x * strokes * shape, 0.01, 0.08), 0.24)
 
 
+# ------------------------------------------------------------------ phone UI effects
+# Each uses its own seeded generator, so adding sounds never changes the ones above.
+
+def _rng(seed: int) -> np.random.Generator:
+    return np.random.default_rng(seed)
+
+
+def _tone(freq: float, seconds: float, decay: float, attack: float = 0.004) -> np.ndarray:
+    t = t_axis(seconds)
+    return np.sin(2 * np.pi * freq * t) * np.exp(-t * decay) * np.clip(t / attack, 0, 1)
+
+
+def msg_in() -> np.ndarray:
+    out = np.zeros(int(0.42 * SR))
+    mix_at(out, _tone(1318.5, 0.3, 18) * 0.7 + _tone(2637.0, 0.3, 30) * 0.12, 0.0)
+    mix_at(out, _tone(1760.0, 0.34, 14) * 0.8 + _tone(3520.0, 0.34, 26) * 0.1, 0.075)
+    return normalise(fade(out, 0.0005, 0.08), 0.34)
+
+
+def msg_out() -> np.ndarray:
+    seconds = 0.2
+    n = int(seconds * SR)
+    rng = _rng(31)
+    air = rng.standard_normal(n)
+    out = np.zeros(n)
+    hop = 256
+    win = np.hanning(hop * 2)
+    for i in range(0, n - hop * 2, hop):
+        f = 1200 + (4200 - 1200) * (i / n)
+        out[i:i + hop * 2] += band(air[i:i + hop * 2], f * 0.7, min(f * 1.5, 9000), 2) * win
+    out *= np.sin(np.linspace(0, np.pi, n)) ** 2
+    pop = _tone(880.0, seconds, 45) * 0.5
+    return normalise(fade(out * 0.6 + pop, 0.001, 0.03), 0.3)
+
+
+def notify() -> np.ndarray:
+    out = np.zeros(int(1.1 * SR))
+    for i, f in enumerate((1046.5, 1318.5, 1568.0)):
+        note = _tone(f, 0.9, 5.5) * 0.6 + _tone(f * 2, 0.9, 9) * 0.12
+        mix_at(out, note * (0.9 - i * 0.1), i * 0.085)
+    return normalise(fade(out, 0.0005, 0.2), 0.32)
+
+
+def _swish(rising: bool, seed: int) -> np.ndarray:
+    seconds = 0.26
+    n = int(seconds * SR)
+    air = _rng(seed).standard_normal(n)
+    out = np.zeros(n)
+    hop = 256
+    win = np.hanning(hop * 2)
+    for i in range(0, n - hop * 2, hop):
+        p = i / n if rising else 1 - i / n
+        f = 500 + 2600 * p ** 1.4
+        out[i:i + hop * 2] += band(air[i:i + hop * 2], f * 0.7, f * 1.6, 2) * win
+    shape = np.sin(np.linspace(0, np.pi, n)) ** (1.2 if rising else 2.0)
+    return normalise(fade(out * shape, 0.004, 0.04), 0.22)
+
+
+def app_open() -> np.ndarray:
+    return _swish(True, 41)
+
+
+def app_close() -> np.ndarray:
+    return _swish(False, 43)
+
+
+def offline() -> np.ndarray:
+    out = np.zeros(int(0.6 * SR))
+    mix_at(out, _tone(659.3, 0.45, 9) * 0.7, 0.0)
+    mix_at(out, _tone(493.9, 0.5, 8) * 0.7, 0.13)
+    return normalise(band(fade(out, 0.001, 0.1), None, 3000, 2), 0.26)
+
+
 # ------------------------------------------------------------------ ambience
 
 def ambience(seconds: float = 48.0) -> np.ndarray:
@@ -228,12 +304,28 @@ def write_ogg(name: str, data: np.ndarray, quality: int = 4) -> None:
     print(f"{name}.ogg  {os.path.getsize(dst) // 1024} KB")
 
 
+SOUNDS = {
+    "sfx_ignite": ignite, "sfx_tap": tap, "sfx_paper": paper, "sfx_pin": pin, "sfx_pickup": pickup,
+    "sfx_putdown": putdown, "sfx_denied": denied, "sfx_scribble": scribble,
+    "sfx_msg_in": msg_in, "sfx_msg_out": msg_out, "sfx_notify": notify, "sfx_app_open": app_open,
+    "sfx_app_close": app_close, "sfx_offline": offline,
+}
+
+
 def main() -> None:
-    for name, fn in (("sfx_ignite", ignite), ("sfx_tap", tap), ("sfx_paper", paper), ("sfx_pin", pin),
-                     ("sfx_pickup", pickup), ("sfx_putdown", putdown), ("sfx_denied", denied),
-                     ("sfx_scribble", scribble)):
-        write_ogg(name, fn())
-    write_ogg("amb_lake", ambience(), quality=3)
+    every = [*SOUNDS, "amb_lake"]
+    wanted = set(sys.argv[1:] or every)
+    unknown = wanted.difference(every)
+    if unknown:
+        sys.exit(f"unknown sound: {', '.join(sorted(unknown))} (choose from {', '.join(every)})")
+    # Every effect is rendered, in order, even when only some are written: the early effects and the
+    # ambience draw from one seeded generator, so each sound comes out the same either way.
+    for name, fn in SOUNDS.items():
+        data = fn()
+        if name in wanted:
+            write_ogg(name, data)
+    if "amb_lake" in wanted:
+        write_ogg("amb_lake", ambience(), quality=3)
 
 
 if __name__ == "__main__":

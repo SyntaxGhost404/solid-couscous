@@ -123,6 +123,7 @@ fun CaseFile(state: GameState) {
         shown?.let { owner ->
             PhoneOverlay(
                 owner = owner,
+                messages = state.messages,
                 boardFit = fit,
                 lift = { lift.value },
                 content = { content.value },

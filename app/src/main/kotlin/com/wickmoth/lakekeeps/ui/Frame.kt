@@ -73,3 +73,12 @@ fun DesignFrame(fit: FrameFit, modifier: Modifier = Modifier, content: @Composab
         )
     }
 }
+
+/**
+ * Applies the design frame's scale without fixing its size: 1.dp is still one design unit, but
+ * the content can fill the whole window (used by app screens that stretch to the window's height).
+ */
+@Composable
+fun DesignScale(fit: FrameFit, content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalDensity provides Density(fit.unit, fontScale = 1f), content = content)
+}
