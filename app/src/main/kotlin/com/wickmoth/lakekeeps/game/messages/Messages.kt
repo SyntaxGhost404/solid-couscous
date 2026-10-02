@@ -111,6 +111,9 @@ class Messages(initial: Map<String, Progress> = emptyMap()) {
     val clock: Int
         get() = Threads.NOW_MINUTES + progress.values.sumOf { it.delivered } * Threads.SECONDS_PER_LIVE_LINE / 60
 
+    /** Forgets all progress, as when the game is started over. */
+    fun clear() = progress.clear()
+
     fun encode(): String = progress.entries.joinToString("\n") { (id, p) ->
         listOf(id, p.chosen.joinToString(","), p.delivered, p.read ?: "", p.dismissed, if (p.signedOff) 1 else 0).joinToString(";")
     }

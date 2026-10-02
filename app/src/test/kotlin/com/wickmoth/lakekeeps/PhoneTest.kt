@@ -1,6 +1,7 @@
 package com.wickmoth.lakekeeps
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -12,20 +13,24 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.wickmoth.lakekeeps.audio.SilentAudio
 import com.wickmoth.lakekeeps.game.GameRoot
 import com.wickmoth.lakekeeps.game.GameState
 import com.wickmoth.lakekeeps.game.Owner
 import com.wickmoth.lakekeeps.game.Stage
+import com.wickmoth.lakekeeps.game.mail.MailBox
 import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Threads
 import com.wickmoth.lakekeeps.game.phone.CallKind
 import com.wickmoth.lakekeeps.game.phone.CallLog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,12 +49,15 @@ class PhoneTest {
 
     private val messages = Messages()
     private val calls = CallLog()
+    private val mail = MailBox()
+    private lateinit var state: GameState
     private var now = 0L
 
     /** The case board with [owner]'s phone already held up and awake. */
     private fun holding(owner: Owner) {
         compose.mainClock.autoAdvance = false
-        compose.setContent { GameRoot(GameState(Stage.Board, phone = owner, boardSettled = true, messages = messages, calls = calls)) }
+        state = GameState(Stage.Board, phone = owner, boardSettled = true, messages = messages, calls = calls, mail = mail)
+        compose.setContent { GameRoot(state) }
     }
 
     /** Advances the frame clock to [ms] since the first frame, capturing the screen if [name] is given. */
@@ -287,5 +295,132 @@ class PhoneTest {
         at(now + 1700)
         at(now + 400, "47_recents_after_ring_out")
         compose.onNodeWithContentDescription("Outgoing call to Mira, now").assertExists()
+    }
+
+    @Test fun mailInboxAndMessages() {
+        holding(Owner.Mira)
+        at(500, "50_mira_home")
+        tap("Mail, 2 unread messages")
+        at(620, "50_mail_open_0120")
+        at(1100, "50_mira_mail")
+
+        tap("Picnook, Priya tagged you in 3 photos, unread")
+        at(now + 150, "51_message_0150")
+        at(now + 500, "51_message")
+        assertEquals(1, mail.unread(Owner.Mira))
+        back()
+        at(now + 450, "52_inbox_after_reading")
+        compose.onNodeWithContentDescription("Picnook, Priya tagged you in 3 photos").assertExists()
+
+        tap("Pier Lights Fair, Your ride passes for Saturday")
+        at(now + 500, "53_message_with_picture")
+        back()
+        at(now + 450)
+        tap("Ms Arden, Portfolio feedback")
+        at(now + 500, "54_message_with_attachment")
+        tap("Attachment: portfolio_notes.pdf")
+        at(now + 80, "54_attachment_refused_0080")
+        at(now + 400, "54_attachment_refused")
+        compose.onNodeWithText("This file can't be opened on this phone.").assertExists()
+
+        back()
+        at(now + 450)
+        back()
+        at(now + 500, "55_mira_home_after_mail")
+        compose.onNodeWithContentDescription("Mail, 1 unread message").assertExists()
+    }
+
+    @Test fun galleryGridHiddenAlbumAndViewer() {
+        holding(Owner.Mira)
+        at(500)
+        tap("Gallery")
+        at(620, "56_gallery_open_0120")
+        at(1100, "56_mira_gallery")
+
+        tap("Priya with sparklers, 2 November")
+        at(now + 90, "57_zoom_0090")
+        at(now + 110, "57_zoom_0200")
+        at(now + 500, "57_photo")
+        compose.onRoot().performTouchInput { swipeLeft() }
+        at(now + 600, "57_next_photo")
+        compose.onNodeWithText("Marshmallows over the fire").assertExists()
+        back()
+        at(now + 120, "58_flying_back_0120")
+        at(now + 500, "58_back_to_grid")
+
+        tap("Hidden photos")
+        at(now + 150, "59_hidden_0150")
+        at(now + 500, "59_hidden_album")
+        tap("A map with one spot circled, 1 November")
+        at(now + 600, "59_hidden_photo")
+        compose.onAllNodesWithText("A map with one spot circled").assertCountEquals(2)
+        // A flick down on the photo (below the status bar, where a pull opens the shade) lets it go.
+        compose.onRoot().performTouchInput { swipeDown(startY = centerY, endY = centerY + height / 4f, durationMillis = 150) }
+        at(now + 120, "59_flicked_0120")
+        at(now + 500, "59_after_flick")
+        compose.onAllNodesWithText("A map with one spot circled").assertCountEquals(1)
+        back()
+        at(now + 450, "59_back_from_hidden")
+        compose.onAllNodesWithText("HIDDEN PHOTOS").assertCountEquals(0)
+    }
+
+    @Test fun settingsSwitchesPagesAndReset() {
+        holding(Owner.Theo)
+        // The private number writes first; let its banner come and go so it doesn't cover the app.
+        until("Private number: Theo. 1 unread message")
+        at(now + 5200)
+        tap("Settings")
+        at(now + 120, "60_settings_open_0120")
+        at(now + 600, "60_theo_settings")
+
+        // These taps only flip state. With the clock paused, idling first hands the change to the
+        // recomposer, as the running app's main loop would, so the next frames show it.
+        try {
+            compose.onNodeWithText("Ambience").performClick()
+            compose.waitForIdle()
+            at(now + 80, "61_ambience_off_0080")
+            at(now + 300, "61_ambience_off")
+            assertFalse(SilentAudio.ambienceOn)
+            compose.onNodeWithText("Sound").performClick()
+            compose.waitForIdle()
+            at(now + 300, "61_sound_off")
+            assertTrue(SilentAudio.muted)
+        } finally {
+            SilentAudio.muted = false
+            SilentAudio.ambienceOn = true
+        }
+        compose.waitForIdle()
+        at(now + 300)
+
+        tap("How to play")
+        compose.waitForIdle()
+        at(now + 120, "62_help_0120")
+        at(now + 400, "62_help")
+        back()
+        compose.waitForIdle()
+        at(now + 400)
+        tap("Credits")
+        compose.waitForIdle()
+        at(now + 400, "63_credits")
+        back()
+        compose.waitForIdle()
+        at(now + 400)
+
+        tap("Reset progress")
+        at(now + 120, "64_reset_sheet_0120")
+        at(now + 500, "64_reset_sheet")
+        tap("Cancel")
+        at(now + 500, "64_reset_cancelled")
+        assertEquals(Stage.Board, state.stage)
+        assertEquals(1, messages[Threads.PrivateNumber].delivered)
+
+        tap("Reset progress")
+        at(now + 500)
+        tap("Reset")
+        compose.waitForIdle()
+        at(now + 300, "65_after_reset")
+        assertEquals(Stage.Studio, state.stage)
+        assertEquals(0, messages[Threads.PrivateNumber].delivered)
+        compose.onNodeWithContentDescription("wickmoth").assertExists()
     }
 }

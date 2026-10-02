@@ -31,15 +31,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
-import com.wickmoth.lakekeeps.R
+import com.wickmoth.lakekeeps.game.GameState
 import com.wickmoth.lakekeeps.game.Owner
-import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Notice
 import com.wickmoth.lakekeeps.game.messages.Threads
 import com.wickmoth.lakekeeps.game.messages.formatClock
-import com.wickmoth.lakekeeps.game.phone.CallLog
 import com.wickmoth.lakekeeps.screens.phone.calls.CallsApp
+import com.wickmoth.lakekeeps.screens.phone.gallery.GalleryApp
+import com.wickmoth.lakekeeps.screens.phone.mail.MailApp
 import com.wickmoth.lakekeeps.screens.phone.messages.MessagesApp
+import com.wickmoth.lakekeeps.screens.phone.settings.SettingsApp
 import com.wickmoth.lakekeeps.ui.DesignFrame
 import com.wickmoth.lakekeeps.ui.LocalViewport
 import com.wickmoth.lakekeeps.ui.lerp
@@ -52,23 +53,23 @@ import kotlinx.coroutines.flow.first
 private const val FIRST_MESSAGE_DELAY_MS = 1200L
 
 /**
- * A held phone: its home screen, the Messages and Phone apps, the status bar and its shade.
- * [content] (0..1) is the phone waking up as it is lifted; [onPutDown] sets it back on the desk.
+ * A held phone: its home screen and apps, the status bar and its shade. [content] (0..1) is the
+ * phone waking up as it is lifted; [onPutDown] sets it back on the desk.
  */
 @Composable
-fun PhoneScreen(owner: Owner, messages: Messages, calls: CallLog, content: () -> Float, onPutDown: () -> Unit) {
-    val os = rememberPhoneOs(owner, messages, calls)
+fun PhoneScreen(owner: Owner, state: GameState, content: () -> Float, onPutDown: () -> Unit) {
+    val os = rememberPhoneOs(owner, state)
+    val messages = state.messages
     val fit = rememberFrameFit(Alignment.TopCenter)
     val viewport = LocalViewport.current
     val spec = remember(owner) { phoneSpec(owner) }
     var panelHeight by remember { mutableFloatStateOf(1f) }
     val busy by remember { derivedStateOf { os.busy } }
     val appIcons = remember(fit) {
-        fun tile(label: Int): Rect {
-            val at = iconTopLeft(spec.apps.indexOfFirst { it.label == label })
-            return Rect(fit.toWindow(at.x, at.y), Size(ICON * fit.unit, ICON * fit.unit))
-        }
-        mapOf(PhoneApp.Messages to tile(R.string.app_messages), PhoneApp.Calls to tile(R.string.app_phone))
+        spec.apps.withIndex().mapNotNull { (i, app) ->
+            val at = iconTopLeft(i)
+            app.opens?.let { it to Rect(fit.toWindow(at.x, at.y), Size(ICON * fit.unit, ICON * fit.unit)) }
+        }.toMap()
     }
     SideEffect { os.appIcons = appIcons }
 
@@ -89,7 +90,13 @@ fun PhoneScreen(owner: Owner, messages: Messages, calls: CallLog, content: () ->
         HomeScreen(
             owner = owner,
             content = content,
-            unread = { messages.unread(owner) },
+            unread = { app ->
+                when (app) {
+                    PhoneApp.Messages -> messages.unread(owner)
+                    PhoneApp.Mail -> state.mail.unread(owner)
+                    else -> 0
+                }
+            },
             onOpen = { app -> os.openApp(app, appIcons.getValue(app)) },
             modifier = Modifier.graphicsLayer {
                 val s = 1f - 0.06f * os.appIn.value
@@ -98,11 +105,14 @@ fun PhoneScreen(owner: Owner, messages: Messages, calls: CallLog, content: () ->
             },
         )
         os.app?.let { app ->
-            val icon = if (app == PhoneApp.Messages) R.drawable.icon_messages else R.drawable.icon_phone
+            val icon = spec.apps.first { it.opens == app }.icon
             AppWindow(os.launchedFrom, icon, appIcons.getValue(app).width, viewport, progress = { os.appIn.value }) {
                 when (app) {
                     PhoneApp.Messages -> MessagesApp(os, fit)
                     PhoneApp.Calls -> CallsApp(os, fit)
+                    PhoneApp.Mail -> MailApp(os, fit)
+                    PhoneApp.Gallery -> GalleryApp(os, fit)
+                    PhoneApp.Settings -> SettingsApp(os, fit)
                 }
             }
         }

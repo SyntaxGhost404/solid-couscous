@@ -19,8 +19,9 @@ import com.wickmoth.lakekeeps.ui.Palette
 @Composable
 fun GameRoot(state: GameState = rememberGameState()) {
     val audio = LocalAudio.current
+    // the lake is heard from the title on; it falls silent again if the game is started over
     LaunchedEffect(state.stage >= Stage.Title) {
-        if (state.stage >= Stage.Title) audio.ambience(true)
+        audio.ambience(state.stage >= Stage.Title)
     }
     GameSurface {
         // Each intro screen fades itself out to the shared night colour, so a plain swap is seamless.

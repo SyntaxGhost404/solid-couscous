@@ -19,7 +19,8 @@ import com.wickmoth.lakekeeps.R
 
 /**
  * Plays the effects through a SoundPool and loops the ambience through a MediaPlayer. Effects only
- * play while the game is visible and not muted; the ambience also needs audio focus.
+ * play while the game is visible and not muted; the ambience also needs audio focus, and can be
+ * switched off on its own.
  */
 class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
     private val app = context.applicationContext
@@ -33,6 +34,16 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
         set(value) {
             mutedState = value
             settings.edit { putBoolean(KEY_MUTED, value) }
+            update()
+        }
+
+    private var ambienceState by mutableStateOf(settings.getBoolean(KEY_AMBIENCE, true))
+
+    override var ambienceOn: Boolean
+        get() = ambienceState
+        set(value) {
+            ambienceState = value
+            settings.edit { putBoolean(KEY_AMBIENCE, value) }
             update()
         }
 
@@ -115,7 +126,7 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
     }
 
     private fun update() {
-        if (wanted && visible && !muted) startAmbience() else stopAmbience()
+        if (wanted && visible && !muted && ambienceOn) startAmbience() else stopAmbience()
     }
 
     private fun startAmbience() {
@@ -191,11 +202,14 @@ class SoundBank(context: Context) : GameAudio, DefaultLifecycleObserver {
         Sfx.KeyHash -> R.raw.sfx_key_hash
         Sfx.Ringback -> R.raw.sfx_ringback
         Sfx.CallEnd -> R.raw.sfx_call_end
+        Sfx.Toggle -> R.raw.sfx_toggle
+        Sfx.Reveal -> R.raw.sfx_reveal
     }
 
     private companion object {
         const val AMBIENCE_LEVEL = 0.55f
         const val EFFECTS_LEVEL = 0.9f
         const val KEY_MUTED = "muted"
+        const val KEY_AMBIENCE = "ambience"
     }
 }

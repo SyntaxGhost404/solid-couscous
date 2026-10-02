@@ -1,11 +1,14 @@
 package com.wickmoth.lakekeeps
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.wickmoth.lakekeeps.game.GameRoot
@@ -59,5 +62,20 @@ class AspectTest {
         compose.onNodeWithContentDescription("Call").performClick()
         compose.mainClock.advanceTimeBy(2000)
         compose.onRoot().captureRoboImage("build/shots/9_aspect_16x9_calling.png")
+    }
+
+    /** On a short screen the settings scroll, down to the version line. */
+    @Config(sdk = [36], qualifiers = "w360dp-h640dp-xhdpi")
+    @Test fun wide16x9Settings() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Mira, boardSettled = true)) }
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.mainClock.advanceTimeBy(900)
+        compose.onRoot().captureRoboImage("build/shots/9_aspect_16x9_settings.png")
+        compose.onNodeWithText("Version 0.1.0").performScrollTo()
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithText("Version 0.1.0").assertIsDisplayed()
+        compose.onRoot().captureRoboImage("build/shots/9_aspect_16x9_settings_end.png")
     }
 }

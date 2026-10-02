@@ -273,6 +273,30 @@ def call_end() -> np.ndarray:
     return normalise(_line(out), 0.26)
 
 
+# ------------------------------------------------------------------ Settings and Gallery
+
+def toggle() -> np.ndarray:
+    """A small switch: two quick ticks, the second a touch lower, as the knob travels and lands."""
+    out = np.zeros(int(0.12 * SR))
+    for at, freq, level in ((0.0, 1500.0, 0.8), (0.03, 1150.0, 1.0)):
+        t = t_axis(0.04)
+        tick = np.sin(2 * np.pi * freq * t) * np.exp(-t * 160)
+        click = band(_rng(int(freq)).standard_normal(len(t)), 2500, 8000) * np.exp(-t * 400)
+        mix_at(out, (tick * 0.7 + click * 0.3) * level, at)
+    return normalise(fade(out, 0.0005, 0.01), 0.3)
+
+
+def reveal() -> np.ndarray:
+    """Something hidden coming into view: a soft breath of air under two notes opening upward."""
+    seconds = 0.9
+    t = t_axis(seconds)
+    air = band(_rng(57).standard_normal(len(t)), 1800, 6000, 2) * np.sin(np.linspace(0, np.pi, len(t))) ** 2
+    notes = np.zeros(len(t))
+    for at, freq in ((0.0, 659.3), (0.12, 987.8)):
+        mix_at(notes, _tone(freq, seconds - at, 3.2, attack=0.06) * 0.6, at)
+    return normalise(fade(air * 0.25 + notes, 0.004, 0.15), 0.24)
+
+
 # ------------------------------------------------------------------ ambience
 
 def ambience(seconds: float = 48.0) -> np.ndarray:
@@ -354,6 +378,7 @@ SOUNDS = {
     "sfx_app_close": app_close, "sfx_offline": offline,
     **{f"sfx_key_{key}": (lambda low=low, high=high: key_tone(low, high)) for key, (low, high) in KEYS.items()},
     "sfx_ringback": ringback, "sfx_call_end": call_end,
+    "sfx_toggle": toggle, "sfx_reveal": reveal,
 }
 
 

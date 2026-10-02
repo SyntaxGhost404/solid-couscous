@@ -59,8 +59,9 @@ import com.wickmoth.lakekeeps.ui.tactile
 import com.wickmoth.lakekeeps.ui.window
 import kotlinx.coroutines.launch
 
+/** A home screen icon. [opens] is the app behind it, if it has one; [enabled] false dims it, locked. */
 @Immutable
-data class App(@StringRes val label: Int, @DrawableRes val icon: Int, val enabled: Boolean = true)
+data class App(@StringRes val label: Int, @DrawableRes val icon: Int, val opens: PhoneApp? = null, val enabled: Boolean = true)
 
 @Immutable
 data class PhoneSpec(@StringRes val owner: Int, @DrawableRes val wallpaper: Int, val apps: List<App>)
@@ -70,29 +71,31 @@ internal fun phoneSpec(owner: Owner): PhoneSpec = when (owner) {
         R.string.phone_theo,
         R.drawable.wallpaper_theo,
         listOf(
-            App(R.string.app_messages, R.drawable.icon_messages),
-            App(R.string.app_phone, R.drawable.icon_phone),
+            App(R.string.app_messages, R.drawable.icon_messages, PhoneApp.Messages),
+            App(R.string.app_phone, R.drawable.icon_phone, PhoneApp.Calls),
             App(R.string.app_calculator, R.drawable.icon_calculator),
             App(R.string.app_browser, R.drawable.icon_browser),
             App(R.string.app_notes, R.drawable.icon_notes),
             App(R.string.app_archive, R.drawable.icon_archive),
             App(R.string.app_loose_ends, R.drawable.icon_loose_ends),
-            App(R.string.app_settings, R.drawable.icon_settings, enabled = false),
+            App(R.string.app_settings, R.drawable.icon_settings, PhoneApp.Settings),
+            App(R.string.app_mail, R.drawable.icon_mail, PhoneApp.Mail),
+            App(R.string.app_gallery, R.drawable.icon_gallery, PhoneApp.Gallery),
         ),
     )
     Owner.Mira -> PhoneSpec(
         R.string.phone_mira,
         R.drawable.wallpaper_mira,
         listOf(
-            App(R.string.app_messages, R.drawable.icon_messages),
-            App(R.string.app_phone, R.drawable.icon_phone),
-            App(R.string.app_mail, R.drawable.icon_mail, enabled = false),
-            App(R.string.app_gallery, R.drawable.icon_gallery),
+            App(R.string.app_messages, R.drawable.icon_messages, PhoneApp.Messages),
+            App(R.string.app_phone, R.drawable.icon_phone, PhoneApp.Calls),
+            App(R.string.app_mail, R.drawable.icon_mail, PhoneApp.Mail),
+            App(R.string.app_gallery, R.drawable.icon_gallery, PhoneApp.Gallery),
             App(R.string.app_picnook, R.drawable.icon_picnook),
             App(R.string.app_diary, R.drawable.icon_diary),
             App(R.string.app_files, R.drawable.icon_files),
             App(R.string.app_mooncrush, R.drawable.icon_mooncrush),
-            App(R.string.app_settings, R.drawable.icon_settings),
+            App(R.string.app_settings, R.drawable.icon_settings, PhoneApp.Settings),
         ),
     )
 }
@@ -111,11 +114,11 @@ internal const val ICONS_MS = 760f
 
 /**
  * A phone's home screen at full size. [content] (0..1) drives the staggered arrival of the icons,
- * so the same screen can be shown while it is still being lifted. The Messages icon carries the
- * [unread] badge; Messages and Phone open their apps from their tiles.
+ * so the same screen can be shown while it is still being lifted. Icons with an app open it from
+ * their tile, and carry its [unread] count as a badge.
  */
 @Composable
-fun HomeScreen(owner: Owner, content: () -> Float, unread: () -> Int, onOpen: (PhoneApp) -> Unit, modifier: Modifier = Modifier) {
+fun HomeScreen(owner: Owner, content: () -> Float, unread: (PhoneApp) -> Int, onOpen: (PhoneApp) -> Unit, modifier: Modifier = Modifier) {
     val spec = remember(owner) { phoneSpec(owner) }
     val fit = rememberFrameFit(Alignment.TopCenter)
     Box(modifier.fillMaxSize().background(Color.Black)) {
@@ -139,10 +142,11 @@ fun HomeScreen(owner: Owner, content: () -> Float, unread: () -> Int, onOpen: (P
         )
         DesignFrame(fit) {
             spec.apps.forEachIndexed { i, app ->
-                when (app.label) {
-                    R.string.app_messages -> AppIcon(app, i, content, badge = unread, onOpen = { onOpen(PhoneApp.Messages) })
-                    R.string.app_phone -> AppIcon(app, i, content, onOpen = { onOpen(PhoneApp.Calls) })
-                    else -> AppIcon(app, i, content)
+                val opens = app.opens
+                if (opens != null) {
+                    AppIcon(app, i, content, badge = { unread(opens) }, onOpen = { onOpen(opens) })
+                } else {
+                    AppIcon(app, i, content)
                 }
             }
         }

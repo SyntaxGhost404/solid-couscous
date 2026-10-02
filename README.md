@@ -1,8 +1,8 @@
 # What the Lake Keeps
 
 A full-screen Android narrative investigation game, built natively in Kotlin with Jetpack Compose.
-This prototype has an intro sequence, a case board, and two in-game phones with working Messages
-and Phone apps.
+This prototype has an intro sequence, a case board, and two in-game phones with working Messages,
+Phone, Mail, Gallery and Settings apps.
 
 | Studio ident | Advisory | Title | Case board | Theo's phone | Mira's phone |
 |---|---|---|---|---|---|
@@ -16,6 +16,14 @@ and Phone apps.
 |---|---|---|---|---|
 | ![](docs/screens/13-recents.png) | ![](docs/screens/14-keypad.png) | ![](docs/screens/15-number.png) | ![](docs/screens/16-calling.png) | ![](docs/screens/17-call-ended.png) |
 
+| Mail | Attachment | Picture | Gallery | Photo | Hidden photos |
+|---|---|---|---|---|---|
+| ![](docs/screens/18-mail.png) | ![](docs/screens/19-mail-attachment.png) | ![](docs/screens/20-mail-picture.png) | ![](docs/screens/21-gallery.png) | ![](docs/screens/22-photo.png) | ![](docs/screens/23-hidden-photos.png) |
+
+| Settings | How to play | Credits | Start over? |
+|---|---|---|---|
+| ![](docs/screens/24-settings.png) | ![](docs/screens/25-how-to-play.png) | ![](docs/screens/26-credits.png) | ![](docs/screens/27-reset.png) |
+
 ## Originality
 
 The six reference screenshots this build was planned from belong to an existing commercial game.
@@ -25,10 +33,12 @@ logo, game title, cast, story details, illustrations, icons, wallpapers, layout 
 sounds. Treat **wickmoth** and **What the Lake Keeps** as placeholders. They live in
 `res/values/strings.xml`.
 
-The Messages app, status bar, notification shade and Phone app were planned from further
-screenshots from the same game. Those served only as a functional reference for layout, features
-and behaviour. Their visuals, names, numbers and dialogue are not reused, and the phone UI follows
-this game's own night palette and type.
+The Messages app, status bar, notification shade, Phone, Mail, Gallery and Settings apps were
+planned from further screenshots from the same game. Those served only as a functional reference
+for layout, features and behaviour. Their visuals, names, numbers, addresses, emails and dialogue
+are not reused, and the phone UI follows this game's own night palette and type. The reference
+settings screen also had in-app purchases, a linked account, share and rate buttons and social
+links. None of that is here.
 
 ## What's in the build
 
@@ -48,13 +58,13 @@ this game's own night palette and type.
 5. **Phones (Theo's and Mira's).** The phone lifts off the desk and rotates upright to fill the
    screen, while the board recedes and dims. The screen wakes, the wallpaper settles, the status
    bar lights up, and the icons pop in with a stagger.
-   - Icons respond with a press spring.
-   - Locked apps (dimmed) shake, with a reject haptic.
+   - Icons respond with a press spring. Messages, Phone, Mail, Gallery and Settings open on both
+     phones; the other apps give press feedback only.
    - The ◇ button, system back, or a predictive-back gesture puts the phone back down. During the
      gesture the phone shrinks with your swipe.
    - The status bar shows the in-game clock (it moves on as messages arrive), a message icon
-     while notifications are waiting, and the owner's name on the home screen. The Messages icon
-     carries an unread count that pops in and bumps as messages land.
+     while notifications are waiting, and the owner's name on the home screen. The Messages and
+     Mail icons carry unread counts. The Messages count pops in and bumps as messages land.
 6. **Notification shade.** Pull the status bar down, or tap it. The shade shows a large clock and
    the date, a sound toggle that mutes every game sound and is remembered, and the waiting
    conversations. Tap a notification to open its conversation, or swipe it sideways to clear it.
@@ -84,13 +94,35 @@ this game's own night palette and type.
      ◇ controls are hidden, system back only shakes the call, and notifications can't take you
      away.
    - Calls you make are saved with the game.
+9. **Mail.** The inbox, newest first: sender, subject, and when it arrived (the time today,
+   "Yesterday", or the date), with unread mail in bold and marked with a dot.
+   - Opening an email slides it in over the inbox: the subject, the sender and their address, "to
+     me" and the date, then the body.
+   - Some emails carry a picture. Others carry an attachment, which shakes and says it can't be
+     opened on this phone.
+   - People this phone already talks to keep their Messages portrait. Everyone else gets their
+     initial.
+   - What has been read is saved with the game.
+10. **Gallery.** Photos grouped by day, newest first, three to a row.
+    - Tap a photo: it grows out of its thumbnail into a viewer with the date and its caption.
+      Swipe sideways through the album. Back, the arrow, or a flick up or down sends it back
+      into its thumbnail.
+    - The crossed-out eye opens the hidden photos, laid out large with their captions. Mira has
+      two. Theo has none, and his album says so.
+11. **Settings.** The game's title card, then two groups.
+    - **Sound:** a Sound switch (the same one as in the shade) and an Ambience switch for the lake
+      loop. Both are remembered.
+    - **Game:** How to play, Credits, and Reset progress. Reset asks first, in a sheet. Confirming
+      forgets every message, call and email read on both phones, and the game starts again from
+      the studio ident. Sound settings are kept.
+    - The version number sits at the bottom.
 
-Intro screens advance on their own, and a tap skips ahead. Messages and Phone are the apps that
-open; tapping any other app gives press feedback only. Taps carry haptics, and a synthesised lake
-ambience plays from the title on. The ambience pauses in the background and respects audio focus.
-The phones add sound effects for messages arriving and being sent, the notification chime, apps
-and the shade opening and closing, a contact going offline, keypad tones, the ringing tone and
-the line dropping. No sound plays while the game is in the background.
+Intro screens advance on their own, and a tap skips ahead. Taps carry haptics, and a synthesised
+lake ambience plays from the title on, unless it is switched off in Settings. The ambience pauses
+in the background and respects audio focus. There is no music. The phones add sound effects for
+messages arriving and being sent, the notification chime, apps and the shade opening and closing,
+a contact going offline, keypad tones, the ringing tone, the line dropping, switches, and the
+hidden album opening. No sound plays while the game is in the background.
 
 All conversations, contacts and call history are placeholders while the story is open.
 Conversations live in `game/messages/Threads.kt`, written with a small script builder (`says`,
@@ -98,6 +130,12 @@ Conversations live in `game/messages/Threads.kt`, written with a small script bu
 with numbers in the 555-01xx range kept for fiction; a test checks they match the numbers on the
 Messages contact cards. Contacts from the board reuse their polaroid portraits. Everyone else gets
 a lettered or no-photo placeholder.
+
+Emails live in `game/mail/Inboxes.kt`, with addresses on `.example` domains. The photos in
+`game/gallery/Albums.kt` are captions only for now: each one is drawn as a plain placeholder tile
+(`screens/phone/Placeholder.kt`) in one of the game's night tones, and the same tile stands in for
+pictures in emails. Swap in real images once the story's art is made. Dates count back from the
+game's "today", Saturday 4 November, in `game/GameTime.kt`.
 
 ## Build and run
 
@@ -123,7 +161,7 @@ frame is scaled uniformly to fit, with full-bleed backgrounds around it on other
 ```
 
 The flow tests include a whole live conversation, and a placed call, surviving the activity being
-recreated.
+recreated, and a reset from Settings starting the story over.
 
 ## Art and audio pipelines
 
@@ -147,6 +185,8 @@ app/src/main/kotlin/com/wickmoth/lakekeeps/
   game/                    stage flow and saved state
   game/messages/           conversation scripts, placeholder threads, message progress
   game/phone/              address books, call history, the calls the player makes
+  game/mail/               placeholder inboxes, which emails have been read
+  game/gallery/            placeholder albums
   ui/                      design frame, motion helpers, touch and haptics, fonts, palette
   audio/                   sound bank (SoundPool effects, looping ambience)
   screens/studio|advisory|title/
@@ -154,6 +194,9 @@ app/src/main/kotlin/com/wickmoth/lakekeeps/
   screens/phone/           home screens, status bar, shade and banner, the pick-up transition
   screens/phone/messages/  the Messages app: inbox, conversation, contact card
   screens/phone/calls/     the Phone app: recent calls, keypad, calling
+  screens/phone/mail/      the Mail app: inbox, email
+  screens/phone/gallery/   the Gallery app: albums, hidden photos, photo viewer
+  screens/phone/settings/  the Settings app: sound, how to play, credits, reset
 ```
 
 ## Licences

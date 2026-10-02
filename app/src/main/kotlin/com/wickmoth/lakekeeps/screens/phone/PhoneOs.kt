@@ -16,7 +16,9 @@ import androidx.compose.ui.platform.LocalView
 import com.wickmoth.lakekeeps.audio.GameAudio
 import com.wickmoth.lakekeeps.audio.LocalAudio
 import com.wickmoth.lakekeeps.audio.Sfx
+import com.wickmoth.lakekeeps.game.GameState
 import com.wickmoth.lakekeeps.game.Owner
+import com.wickmoth.lakekeeps.game.mail.MailBox
 import com.wickmoth.lakekeeps.game.messages.Messages
 import com.wickmoth.lakekeeps.game.messages.Notice
 import com.wickmoth.lakekeeps.game.messages.Thread
@@ -31,21 +33,25 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** The apps that open on the in-game phones. */
-enum class PhoneApp { Messages, Calls }
+enum class PhoneApp { Messages, Calls, Mail, Gallery, Settings }
 
 /**
  * Everything that moves inside a held phone: an app's window opening from where it was launched,
  * the Messages inbox and chat, the Phone app's dialer, the notification shade and the banner.
+ * [state] is the whole game, which the phones' apps read and the Settings app can start over.
  */
 @Stable
 class PhoneOs internal constructor(
     val owner: Owner,
-    val messages: Messages,
-    val calls: CallLog,
+    val state: GameState,
     private val scope: CoroutineScope,
     private val audio: GameAudio,
     private val feedback: (Haptic) -> Unit,
 ) {
+    val messages: Messages = state.messages
+    val calls: CallLog = state.calls
+    val mail: MailBox = state.mail
+
     /** The app on screen (including while its window opens or closes), if any. */
     var app by mutableStateOf<PhoneApp?>(null)
         private set
@@ -260,9 +266,9 @@ class PhoneOs internal constructor(
 }
 
 @Composable
-fun rememberPhoneOs(owner: Owner, messages: Messages, calls: CallLog): PhoneOs {
+fun rememberPhoneOs(owner: Owner, state: GameState): PhoneOs {
     val scope = rememberCoroutineScope()
     val audio = LocalAudio.current
     val view = LocalView.current
-    return remember(owner, messages, calls) { PhoneOs(owner, messages, calls, scope, audio) { view.haptic(it) } }
+    return remember(owner, state) { PhoneOs(owner, state, scope, audio) { view.haptic(it) } }
 }

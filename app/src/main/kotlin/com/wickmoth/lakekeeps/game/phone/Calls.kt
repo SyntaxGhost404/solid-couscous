@@ -70,6 +70,9 @@ class CallLog(initial: List<Placed> = emptyList()) {
         placed.filter { it.owner == owner }.asReversed().map { Call(it.number, CallKind.Outgoing, 0, it.minutes) } +
             PhoneBook.history(owner)
 
+    /** Forgets the player's calls, as when the game is started over. */
+    fun clear() = placed.clear()
+
     fun encode(): String = placed.joinToString("\n") { "${it.owner.name};${it.number};${it.minutes}" }
 
     companion object {

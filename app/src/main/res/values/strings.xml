@@ -116,4 +116,42 @@
     <string name="ago_minutes">%1$dm ago</string>
     <string name="ago_hours">%1$dh ago</string>
     <string name="ago_days">%1$dd ago</string>
+
+    <!-- In-game phones: Mail app -->
+    <string name="mail_inbox">Inbox</string>
+    <string name="mail_to_me">to me</string>
+    <string name="mail_unread">%1$s, unread</string>
+    <string name="mail_attachment">Attachment: %1$s</string>
+    <string name="mail_attachment_unavailable">This file can\'t be opened on this phone.</string>
+
+    <!-- In-game phones: Gallery app -->
+    <string name="gallery_hidden">Hidden photos</string>
+    <string name="gallery_hidden_none">No hidden photos</string>
+    <string name="gallery_photo">%1$s, %2$s</string>
+
+    <!-- In-game phones: Settings app -->
+    <string name="settings_sound_section">Sound</string>
+    <string name="settings_game_section">Game</string>
+    <string name="settings_sound">Sound</string>
+    <string name="settings_sound_about">Everything you hear in the game</string>
+    <string name="settings_ambience">Ambience</string>
+    <string name="settings_ambience_about">The lake at night, from the title on</string>
+    <string name="settings_help">How to play</string>
+    <string name="settings_credits">Credits</string>
+    <string name="settings_reset">Reset progress</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_prototype">A prototype by %1$s</string>
+    <string name="reset_title">Start over?</string>
+    <string name="reset_body">Messages, calls and everything read on both phones will be forgotten, and the story starts again from the beginning. Your sound settings stay as they are.</string>
+    <string name="reset_confirm">Reset</string>
+    <string name="cancel">Cancel</string>
+    <string name="help_board">On the case board, tap a photo or anything on the desk to take a closer look.</string>
+    <string name="help_phones">Tap a phone on the desk to pick it up. The ◇ at the top, or back, puts it down again.</string>
+    <string name="help_shade">Pull down from the top of a phone for its notifications and the sound switch.</string>
+    <string name="help_live">When someone messages live, pick a reply when it\'s your turn. You can\'t leave until they\'re done.</string>
+    <string name="help_calls">A call rings until someone picks up, or until you hang up.</string>
+    <string name="credits_made">Illustrations, sounds and code were made for this game.</string>
+    <string name="credits_fonts_title">Typefaces</string>
+    <string name="credits_fonts">Quicksand, Caveat, Covered By Your Grace, IM Fell English and Josefin Sans, under the SIL Open Font License.</string>
+    <string name="credits_built">Built with Kotlin and Jetpack Compose.</string>
 </resources>

@@ -108,12 +108,14 @@ class ScreensTest {
         at(520, "7_swing_0420")
     }
 
-    @Test fun lockedApp() {
+    /** Settings, once a locked app on Theo's phone, opens out of its icon like the others. */
+    @Test fun settingsOpens() {
         compose.mainClock.autoAdvance = false
         compose.setContent { GameRoot(GameState(Stage.Board, phone = Owner.Theo, boardSettled = true)) }
-        at(300, "8_locked_0000")
-        compose.onNodeWithContentDescription("Settings, unavailable").performClick()
-        at(360, "8_locked_0060")
-        at(430, "8_locked_0130")
+        at(300, "8_settings_0000")
+        compose.onNodeWithContentDescription("Settings").performClick()
+        at(360, "8_settings_0060")
+        at(430, "8_settings_0130")
+        at(900, "8_settings_open")
     }
 }

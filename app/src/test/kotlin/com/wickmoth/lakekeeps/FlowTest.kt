@@ -137,4 +137,22 @@ class FlowTest {
         compose.mainClock.advanceTimeBy(800)
         compose.onNodeWithContentDescription("Outgoing call to Priya, now").assertExists()
     }
+
+    @Test fun resetFromSettingsStartsTheGameOver() {
+        skipToBoard()
+        compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
+        until(label = "Private number: Theo. 1 unread message")
+        compose.onNodeWithContentDescription("Settings").performClick()
+        until(label = "Reset progress")
+        compose.onNodeWithContentDescription("Reset progress").performClick()
+        until(label = "Reset")
+        compose.onNodeWithContentDescription("Reset").performClick()
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithContentDescription("wickmoth").assertExists()
+
+        // From the top again: the private number has never written, so it writes again.
+        skipToBoard()
+        compose.onNodeWithContentDescription("Theo's phone, on the desk").performClick()
+        until(label = "Private number: Theo. 1 unread message")
+    }
 }

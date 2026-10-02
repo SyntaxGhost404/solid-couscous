@@ -20,7 +20,10 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
 
 /** Plain line glyphs for the in-game phone UI, drawn on a 24-unit grid. */
-enum class Glyph { Back, Close, SoundOn, SoundOff, Message, Handset, Keypad, Recents, Backspace, CallOut, CallIn, CallMissed }
+enum class Glyph {
+    Back, Close, SoundOn, SoundOff, Message, Handset, Keypad, Recents, Backspace, CallOut, CallIn, CallMissed,
+    Eye, EyeOff, Photo, Attachment, Chevron, Waves, Reset, Help, Credits,
+}
 
 @Composable
 fun GlyphIcon(glyph: Glyph, color: Color, modifier: Modifier = Modifier, alpha: () -> Float = { 1f }, turn: () -> Float = { 0f }) {
@@ -44,6 +47,22 @@ private val UprightHandset: Path by lazy {
 
 private val BackspaceOutline: Path by lazy {
     PathParser().parsePathString("M9 5.5H19.5Q21.5 5.5 21.5 7.5V16.5Q21.5 18.5 19.5 18.5H9L2.5 12Z").toPath()
+}
+
+private val EyeOutline: Path by lazy { PathParser().parsePathString("M2.5 12Q12 3 21.5 12Q12 21 2.5 12Z").toPath() }
+
+private val Paperclip: Path by lazy {
+    PathParser().parsePathString("M16.5 8V15.5A4.5 4.5 0 0 1 7.5 15.5V6.5A3 3 0 0 1 13.5 6.5V15A1.5 1.5 0 0 1 10.5 15V8.5").toPath()
+}
+
+private val ThreeWaves: Path by lazy {
+    PathParser().parsePathString(
+        "M3 7Q6 4.5 9 7T15 7T21 7M3 12Q6 9.5 9 12T15 12T21 12M3 17Q6 14.5 9 17T15 17T21 17",
+    ).toPath()
+}
+
+private val QuestionMark: Path by lazy {
+    PathParser().parsePathString("M9.3 9.4Q9.4 6.6 12 6.6Q14.7 6.6 14.7 9.1Q14.7 10.8 12.9 11.7Q12 12.2 12 13.6").toPath()
 }
 
 /**
@@ -130,6 +149,38 @@ fun DrawScope.drawGlyph(glyph: Glyph, color: Color, alpha: Float = 1f, turn: Flo
         Glyph.CallMissed -> {
             line(3.5f, 8f, 10.5f, 15f, 20f, 5.5f)
             line(14.5f, 5.5f, 20f, 5.5f, 20f, 11f)
+        }
+        Glyph.Eye, Glyph.EyeOff -> {
+            onGrid { drawPath(EyeOutline, color, alpha = alpha, style = Stroke(width = 2f, join = StrokeJoin.Round)) }
+            drawCircle(color, 3f * u, p(12f, 12f), alpha = alpha, style = stroke)
+            if (glyph == Glyph.EyeOff) line(4f, 3.5f, 20f, 20.5f)
+        }
+        Glyph.Photo -> {
+            drawRoundRect(color, p(3f, 4.5f), Size(18f * u, 15f * u), CornerRadius(3f * u), alpha = alpha, style = stroke)
+            drawCircle(color, 1.8f * u, p(8.5f, 9.5f), alpha = alpha, style = stroke)
+            line(3.5f, 17.5f, 9.5f, 12f, 13f, 15f, 16f, 12.5f, 20.5f, 16.5f)
+        }
+        Glyph.Attachment -> onGrid {
+            drawPath(Paperclip, color, alpha = alpha, style = Stroke(width = 2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+        Glyph.Chevron -> line(9.5f, 5.5f, 16f, 12f, 9.5f, 18.5f)
+        Glyph.Waves -> onGrid {
+            drawPath(ThreeWaves, color, alpha = alpha, style = Stroke(width = 2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
+        Glyph.Reset -> {
+            // round arrow turning back on itself
+            drawArc(color, -150f, 300f, false, p(4f, 4f), Size(16f * u, 16f * u), alpha = alpha, style = stroke)
+            line(3.6f, 3.8f, 5.1f, 8f, 9.4f, 7.1f)
+        }
+        Glyph.Help -> {
+            drawCircle(color, 9f * u, p(12f, 12f), alpha = alpha, style = stroke)
+            onGrid { drawPath(QuestionMark, color, alpha = alpha, style = Stroke(width = 2f, cap = StrokeCap.Round, join = StrokeJoin.Round)) }
+            drawCircle(color, 1.25f * u, p(12f, 17.2f), alpha = alpha)
+        }
+        Glyph.Credits -> {
+            line(5f, 7f, 19f, 7f)
+            line(5f, 12f, 19f, 12f)
+            line(5f, 17f, 13f, 17f)
         }
     }
 }
